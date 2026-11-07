@@ -27,6 +27,7 @@ assert.ok(bundleSize > 10_000, `main.js 体积异常：${bundleSize} 字节（�
 const bundleSource = fs.readFileSync(mainPath, "utf8");
 assert.ok(bundleSource.includes("pdfhl-layer"), "main.js 里没有渲染层类名，打包内容疑似不完整");
 assert.ok(bundleSource.includes("pdfhl-embed-controls"), "main.js 里没有内嵌 PDF 控件，打包内容疑似不完整");
+assert.ok(bundleSource.includes("embed-actions"), "main.js 里没有原生操作按钮定位逻辑，打包内容疑似不完整");
 assert.ok(bundleSource.includes("generateMarkdownLink"), "main.js 里没有链接生成调用，打包内容疑似不完整");
 
 const exported = require(mainPath);

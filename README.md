@@ -11,7 +11,7 @@ Select text or drag a rectangle in Obsidian's built-in PDF viewer — in a PDF t
 ## Features
 
 - **Three-state mode**: the default is **off** — the PDF behaves exactly like the stock viewer. Click **Text mode** or **Rectangle mode** on the right side of the toolbar to enter a mode; click the same button (or press `T` in text mode) to go back to off.
-- **Embedded PDFs**: PDFs embedded with `![[file.pdf]]` support the same highlights, text/rectangle modes, link copying, and sidebar panel. Obsidian hides the native toolbar for ordinary embeds, so the plugin shows its mode buttons in the PDF's top-right corner on hover/focus; canvas embeds keep the native toolbar.
+- **Embedded PDFs**: PDFs embedded with `![[file.pdf]]` support the same highlights, text/rectangle modes, link copying, and sidebar panel. Obsidian hides the native toolbar for ordinary embeds, so the plugin shows its mode buttons in the PDF's top-right corner on hover/focus, automatically to the left of the native three-dot menu and edit-block button; canvas embeds keep the native toolbar.
 - **Text mode**: select text → a floating toolbar appears → **Copy reference** or **Copy link**
 - **Rectangle mode**: drag a rectangle → release → the same floating toolbar appears
 - **Copy reference** mirrors Obsidian's native PDF reference — a quote line, an empty line, then the link. For text selections the selected text becomes the quote line; for rectangles a placeholder sentence is emitted for you to fill in:
@@ -189,7 +189,7 @@ Common symptoms and causes:
 
 - Text highlights are **bounding rectangles**, not per-line shapes; multi-line selections cover the gaps between lines
 - The panel's source-note link opens the note in a new tab (or switches to it if already open) and never replaces the current PDF tab
-- Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and do not cover the PDF content
+- Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and automatically avoid the native action buttons; in a very narrow container they stay inside the PDF's left edge
 - Highlights come from backlinks: delete or break a link and its highlight disappears; there is no in-PDF editor for editing or deleting highlights
 - Color and opacity are global settings, not encoded in the link (the same link shows in the default color in another vault)
 - Copying only writes to the clipboard; nothing is inserted into a note automatically
@@ -199,6 +199,16 @@ Common symptoms and causes:
 ## Changelog
 
 > Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.1
+
+**Changed**
+
+- README now documents the versioning rule: patches for existing-behavior improvements (0.0.0 → 0.0.1), minor bumps for new features (0.0.0 → 0.1.0); every change is committed and pushed to GitHub.
+
+**Fixed**
+
+- Mode buttons for ordinary embedded PDFs now shift left based on the actual position of the native `.embed-actions`, keeping the three-dot menu and edit-block button accessible. The offset is recomputed when the container resizes, with a 72px fallback when measurement fails.
 
 ### 0.2.0
 

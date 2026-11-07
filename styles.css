@@ -129,7 +129,8 @@
 .pdfhl-embed-controls {
   position: absolute;
   top: 6px;
-  right: 6px;
+  /* JS 会按原生 .embed-actions 位置覆盖；72px 是测量失败时的保守回退 */
+  right: 72px;
   z-index: 5;
   display: flex;
   align-items: center;

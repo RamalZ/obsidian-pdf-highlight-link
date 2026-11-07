@@ -3,6 +3,7 @@ import type { KeymapEventHandler, Scope, TFile, WorkspaceLeaf } from "obsidian";
 import type PdfHighlightLinkPlugin from "../main.ts";
 import type { BvLike, HighlightEntry, HighlightMode, NormRect, PdfEventBusLike } from "../types.ts";
 import { buildHighlightIndex } from "../core/backlink-index.ts";
+import { computeOverlayRight } from "../core/geometry.ts";
 import {
   buildLinkAlias,
   buildReferenceBlock,
@@ -48,6 +49,12 @@ export class ViewerBinding {
   private modeButtons: ModeButtonsHandle | null = null;
   /** 普通内嵌 PDF 的原生工具栏被 CSS 隐藏，用自绘 overlay 承载模式按钮 */
   private overlay: HTMLElement | null = null;
+  private overlayObserver: ResizeObserver | null = null;
+  private overlayRaf: number | null = null;
+  private overlayTimer: number | null = null;
+  private overlayAttempts = 0;
+  private overlayParent: HTMLElement | null = null;
+  private overlayActions: HTMLElement | null = null;
   private selectionCapture: SelectionCapture | null = null;
   private rectCapture: RectCapture | null = null;
   private entries: HighlightEntry[] = [];
@@ -154,11 +161,13 @@ export class ViewerBinding {
 
     on("documentloaded", () => {
       this.ensureModeButtons();
+      this.scheduleOverlayPosition();
       this.clearDegenerateNativeHighlightIfNeeded();
       this.refresh();
     });
     on("pagesloaded", () => {
       this.ensureModeButtons();
+      this.scheduleOverlayPosition();
       this.renderer.ensureLayers();
     });
     on("pagerendered", () => {
@@ -229,9 +238,90 @@ export class ViewerBinding {
       (mode) => this.plugin.toggleMode(mode),
       { withSpacer: false },
     );
+    this.scheduleOverlayPosition();
+  }
+
+  /** 等一帧再测量，避免 overlay 刚创建时还没有布局 */
+  private scheduleOverlayPosition(): void {
+    if (this.destroyed || !this.overlay) return;
+    if (this.overlayRaf !== null) window.cancelAnimationFrame(this.overlayRaf);
+    this.overlayRaf = window.requestAnimationFrame(() => {
+      this.overlayRaf = null;
+      this.positionOverlay();
+    });
+  }
+
+  /**
+   * 把 overlay 放到原生 .embed-actions 左侧。
+   * 原生按钮由 Obsidian 渲染，位置/宽度会随主题与容器变化，因此每次测量后写 inline right。
+   */
+  private positionOverlay(): void {
+    if (this.destroyed) return;
+    const overlay = this.overlay;
+    if (!overlay || !overlay.isConnected) return;
+    const parent = this.host.getOverlayParent();
+    if (!parent) return;
+
+    const actions = parent.querySelector<HTMLElement>(":scope > .embed-actions");
+    const actionsRect = actions?.getBoundingClientRect() ?? null;
+    if (!actions || !actionsRect || actionsRect.width <= 0) {
+      // 原生按钮可能比 overlay 晚挂载：先使用 CSS 回退值，再有限次重试
+      overlay.style.right = "";
+      this.observeOverlayLayout(parent, null);
+      this.scheduleOverlayRetry();
+      return;
+    }
+
+    const parentRect = parent.getBoundingClientRect();
+    const overlayWidth = overlay.getBoundingClientRect().width;
+    const desired = computeOverlayRight(parentRect.right, actionsRect.left, 8);
+    // 容器过窄时优先保证 overlay 不越出左边界
+    const maxRight = Math.max(6, parentRect.width - overlayWidth - 6);
+    overlay.style.right = `${Math.min(desired, maxRight)}px`;
+    this.overlayAttempts = 0;
+    this.observeOverlayLayout(parent, actions);
+  }
+
+  private scheduleOverlayRetry(): void {
+    if (this.overlayAttempts >= 10) return;
+    this.overlayAttempts += 1;
+    if (this.overlayTimer !== null) window.clearTimeout(this.overlayTimer);
+    this.overlayTimer = window.setTimeout(() => {
+      this.overlayTimer = null;
+      this.positionOverlay();
+    }, 100);
+  }
+
+  private observeOverlayLayout(parent: HTMLElement, actions: HTMLElement | null): void {
+    if (this.overlayParent === parent && this.overlayActions === actions && this.overlayObserver) {
+      return;
+    }
+    this.overlayObserver?.disconnect();
+    this.overlayObserver = null;
+    this.overlayParent = parent;
+    this.overlayActions = actions;
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => this.scheduleOverlayPosition());
+    observer.observe(parent);
+    if (actions) observer.observe(actions);
+    this.overlayObserver = observer;
   }
 
   private destroyOverlay(): void {
+    if (this.overlayRaf !== null) {
+      window.cancelAnimationFrame(this.overlayRaf);
+      this.overlayRaf = null;
+    }
+    if (this.overlayTimer !== null) {
+      window.clearTimeout(this.overlayTimer);
+      this.overlayTimer = null;
+    }
+    this.overlayObserver?.disconnect();
+    this.overlayObserver = null;
+    this.overlayParent = null;
+    this.overlayActions = null;
+    this.overlayAttempts = 0;
     this.overlay?.remove();
     this.overlay = null;
   }

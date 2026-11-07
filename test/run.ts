@@ -22,6 +22,7 @@ import {
 } from "../src/core/link.ts";
 import {
   clampRect,
+  computeOverlayRight,
   isUsableRect,
   normalizeClientRect,
   rectFromPoints,
@@ -353,6 +354,13 @@ test("rectsIntersect 判断相交", () => {
   const a = { x: 0.1, y: 0.1, w: 0.2, h: 0.2 };
   assert.equal(rectsIntersect(a, { x: 0.2, y: 0.2, w: 0.2, h: 0.2 }), true);
   assert.equal(rectsIntersect(a, { x: 0.5, y: 0.5, w: 0.1, h: 0.1 }), false);
+});
+
+test("computeOverlayRight 避开原生操作按钮", () => {
+  assert.equal(computeOverlayRight(1000, 930, 8), 78);
+  assert.equal(computeOverlayRight(1000, 1000, 8), 8);
+  assert.equal(computeOverlayRight(1000, 1005, 8), 6);
+  assert.equal(computeOverlayRight(Number.NaN, 900, 8), 6);
 });
 
 test("parseHighlightSubpath 支持 URL 编码的 subpath", () => {

@@ -126,3 +126,20 @@ export function getPageNumberOf(pageEl: HTMLElement): number {
 export function rectsIntersect(a: NormRect, b: NormRect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
+
+/**
+ * 计算内嵌控件（overlay）的 CSS right 值：
+ * 让它整体位于原生 .embed-actions 左侧，并保留 gap 间距。
+ * 参数均为视口坐标/像素；无法测量时退回保守的 min。
+ */
+export function computeOverlayRight(
+  parentRight: number,
+  actionsLeft: number,
+  gap = 8,
+  min = 6,
+): number {
+  if (!Number.isFinite(parentRight) || !Number.isFinite(actionsLeft) || !Number.isFinite(gap)) {
+    return min;
+  }
+  return Math.max(min, Math.ceil(parentRight - actionsLeft + gap));
+}
