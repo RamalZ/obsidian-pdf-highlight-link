@@ -72,7 +72,7 @@ The script reads the vault list from `%APPDATA%\obsidian\obsidian.json`: with a 
 npm run deploy -- --vault "F:\MyVault"
 ```
 
-Then in Obsidian: **Settings → Community plugins → Reload (or restart) → enable “PDF 高亮链接”**.
+Then in Obsidian: **Settings → Community plugins → Reload (or restart) → enable “PDF Highlight Link”**.
 
 ### Option 2: copy the files manually
 
@@ -86,7 +86,7 @@ Copy `main.js`, `manifest.json` and `styles.css` into:
 
 1. Open the repository's Releases page and download `main.js`, `manifest.json` and `styles.css` from the latest release
 2. Create `.obsidian/plugins/pdf-highlight-link/` inside your vault and put the three files there
-3. Restart Obsidian, turn off Restricted mode under **Settings → Community plugins**, and enable “PDF 高亮链接”
+3. Restart Obsidian, turn off Restricted mode under **Settings → Community plugins**, and enable “PDF Highlight Link”
 
 You can also use [BRAT](https://github.com/TfTHacker/obsidian42-brat): *Add Beta plugin* → `RamalZ/obsidian-pdf-highlight-link`, and it will update with each release.
 
@@ -107,7 +107,7 @@ Recipient steps (the same text is in `INSTALL.txt`):
 
 1. Obsidian → Settings → Community plugins → **Open plugins folder**, which opens `.obsidian/plugins` for the current vault
 2. Copy the whole `pdf-highlight-link` folder in (overwrite an older one with the same name)
-3. Quit Obsidian completely and reopen it → Settings → Community plugins → turn off Restricted mode → enable “PDF 高亮链接”
+3. Quit Obsidian completely and reopen it → Settings → Community plugins → turn off Restricted mode → enable “PDF Highlight Link”
 
 **Windows notes**
 
@@ -199,6 +199,17 @@ Common symptoms and causes:
 ## Changelog
 
 > Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.3
+
+**Changed**
+
+- Plugin display name is now **PDF Highlight Link** (previously `PDF 高亮链接`). The plugin id `pdf-highlight-link`, settings data, link format, and highlight index are unchanged, so no migration is needed.
+- Updated the install/deploy instructions, packaged `INSTALL.txt`, stylesheet header, and command-palette example to use the English name.
+
+**Fixed**
+
+- The packaged `INSTALL.txt` now tells users to search for **高亮面板** in the command palette instead of the old `PDF 高亮` prefix.
 
 ### 0.2.2
 

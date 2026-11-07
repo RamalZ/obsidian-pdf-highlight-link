@@ -45,6 +45,7 @@ assert.equal(instance.settings.opacity, 0.35, "默认透明度应为 0.35");
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 assert.equal(manifest.id, "pdf-highlight-link", "manifest.json 的 id 与部署目录名不一致");
+assert.equal(manifest.name, "PDF Highlight Link", "manifest.json 的显示名应为英文");
 assert.equal(manifest.isDesktopOnly, true, "插件应标记为仅桌面端");
 assert.equal(typeof manifest.minAppVersion, "string", "manifest.json 缺少 minAppVersion");
 

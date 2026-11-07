@@ -45,7 +45,7 @@ function pathKey(value) {
 }
 
 function printHelp() {
-  console.log(`PDF 高亮链接 · 部署脚本
+  console.log(`PDF Highlight Link · 部署脚本
 
 用法：
   node scripts/deploy.mjs [--vault <路径>] [--config <obsidian.json>]
@@ -235,7 +235,7 @@ async function main() {
   copyArtifacts(targetDir);
 
   console.log(`\n✓ 部署完成（vault 来源：${vault.source}）`);
-  console.log("下一步：Obsidian → 设置 → 第三方插件 → 重新载入（或重启 Obsidian）→ 启用「PDF 高亮链接」\n");
+  console.log("下一步：Obsidian → 设置 → 第三方插件 → 重新载入（或重启 Obsidian）→ 启用「PDF Highlight Link」\n");
 }
 
 main().catch((error) => {

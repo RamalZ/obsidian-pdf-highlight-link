@@ -54,7 +54,7 @@ function readManifest() {
 
 /** 生成随包分发的安装说明（Windows + macOS 通用，不需要任何命令行操作） */
 function buildInstallGuide(manifest) {
-  return `PDF 高亮链接 ${manifest.version} · 安装说明（Windows / macOS）
+  return `PDF Highlight Link ${manifest.version} · 安装说明（Windows / macOS）
 ====================================================
 
 这是一个 Obsidian 桌面端插件：在 PDF 标签页或笔记内嵌 PDF 里选中文字或拖框选区，复制成带页码/坐标的链接；
@@ -74,7 +74,7 @@ function buildInstallGuide(manifest) {
    如果之前装过旧版本，覆盖原来的同名文件夹即可。
 4. 完全退出 Obsidian，再重新打开。
 5. 回到 设置 → 第三方插件：如果「限制模式 / Restricted mode」开着，先关掉；
-   然后在「已安装插件」里找到「PDF 高亮链接」，打开开关。
+   然后在「已安装插件」里找到「PDF Highlight Link」，打开开关。
 6. 想保留旧的「颜色 / 透明度」设置：把旧插件目录里的 data.json 一起复制过来。
    （压缩包默认不含 data.json，对方会使用默认设置。）
 
@@ -122,7 +122,7 @@ macOS：Finder 里按 Cmd + Shift + . 显示隐藏文件。
    点「复制链接」：只复制 [[文件.pdf#page=X&...|文件.pdf, 第 X 页]]。
    别名会跟随 Obsidian 界面语言：简体「第 X 页」、繁体「第 X 頁」、英文「page X」。
 4. 重新打开这个 PDF，对应位置会出现高亮；
-   右侧面板（命令面板搜「PDF 高亮」）会按页列出全部条目。
+   右侧面板（命令面板搜「高亮面板」）会按页列出全部条目。
 
 
 五、常见问题

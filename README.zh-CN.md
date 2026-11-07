@@ -1,4 +1,4 @@
-# PDF 高亮链接（PDF Highlight Link）
+# PDF Highlight Link（PDF 高亮链接）
 
 [English](README.md) | **简体中文**
 
@@ -72,7 +72,7 @@ npm run deploy
 npm run deploy -- --vault "F:\我的笔记库"
 ```
 
-之后在 Obsidian 里「设置 → 第三方插件 → 重新载入（或重启）→ 启用 PDF 高亮链接」。
+之后在 Obsidian 里「设置 → 第三方插件 → 重新载入（或重启）→ 启用 PDF Highlight Link」。
 
 ### 方式二：手动复制
 
@@ -86,7 +86,7 @@ npm run deploy -- --vault "F:\我的笔记库"
 
 1. 打开仓库的 Releases 页面，下载最新版本的 `main.js`、`manifest.json`、`styles.css`
 2. 在 `<vault>/.obsidian/plugins/` 下新建 `pdf-highlight-link` 文件夹，把三个文件放进去
-3. 重启 Obsidian，在「设置 → 第三方插件」里关闭限制模式并启用「PDF 高亮链接」
+3. 重启 Obsidian，在「设置 → 第三方插件」里关闭限制模式并启用「PDF Highlight Link」
 
 用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 也可以：在 BRAT 里「Add Beta plugin」填 `<GitHub 用户名>/obsidian-pdf-highlight-link`，之后随 Release 更新。
 
@@ -107,7 +107,7 @@ npm run package    # 产出 dist/pdf-highlight-link/ 和 dist/pdf-highlight-link
 
 1. Obsidian → 设置 → 第三方插件 → 点「打开插件文件夹 / Open plugins folder」，会直接打开当前 vault 的 `.obsidian/plugins`
 2. 把整个 `pdf-highlight-link` 文件夹复制进去（覆盖旧版同名文件夹即可）
-3. 完全退出 Obsidian 再重新打开 → 设置 → 第三方插件 → 关闭限制模式 → 在已安装列表里启用「PDF 高亮链接」
+3. 完全退出 Obsidian 再重新打开 → 设置 → 第三方插件 → 关闭限制模式 → 在已安装列表里启用「PDF Highlight Link」
 
 **Windows 补充**
 
@@ -177,7 +177,7 @@ scripts/deploy.mjs            部署脚本
 
 ## 排查
 
-命令面板执行「PDF 高亮链接：诊断 PDF 视图（输出到控制台）」，会在开发者控制台（`Ctrl+Shift+I`）打印每个 PDF 叶子的内部组件结构、事件总线来源、页面元素数量与绑定状态，用于确认内部 API 是否随 Obsidian 升级变化。
+命令面板执行「PDF Highlight Link：诊断 PDF 视图（输出到控制台）」，会在开发者控制台（`Ctrl+Shift+I`）打印每个 PDF 叶子的内部组件结构、事件总线来源、页面元素数量与绑定状态，用于确认内部 API 是否随 Obsidian 升级变化。
 
 常见现象与原因：
 
@@ -199,6 +199,17 @@ scripts/deploy.mjs            部署脚本
 ## 版本记录
 
 > 维护约定：每个版本的新增、变更与修复都追加在本节，不覆写旧版本记录。
+
+### 0.2.3
+
+**变更**
+
+- 插件显示名改为 **PDF Highlight Link**（原 `PDF 高亮链接`）。插件 id `pdf-highlight-link`、设置数据、链接格式与高亮索引均保持不变，无需迁移。
+- 同步更新安装/部署说明、打包 `INSTALL.txt`、样式表头注释与命令面板示例中的显示名。
+
+**修复**
+
+- 打包 `INSTALL.txt` 的命令面板搜索词由旧前缀「PDF 高亮」改为「高亮面板」，避免改名后找不到面板命令。
 
 ### 0.2.2
 
