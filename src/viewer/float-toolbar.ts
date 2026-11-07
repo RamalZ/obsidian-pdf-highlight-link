@@ -1,4 +1,5 @@
 import { setIcon } from "obsidian";
+import { getStrings } from "../i18n/strings.ts";
 
 export interface FloatToolbarHandlers {
   /** 复制「引用块」（callout + 链接） */
@@ -28,20 +29,21 @@ export class FloatToolbar {
     this.el = doc.createElement("div");
     this.el.className = "pdfhl-float-toolbar";
     this.el.addEventListener("mousedown", (event) => event.preventDefault());
+    const strings = getStrings();
 
-    this.referenceButton = this.createButton("quote", "复制引用", "pdfhl-float-quote");
+    this.referenceButton = this.createButton("quote", strings.floatCopyReference, "pdfhl-float-quote");
     this.referenceButton.addEventListener("click", (event) => {
       event.preventDefault();
       this.handlers.onCopyReference();
     });
 
-    this.copyButton = this.createButton("link", "复制链接", "pdfhl-float-copy");
+    this.copyButton = this.createButton("link", strings.floatCopyLink, "pdfhl-float-copy");
     this.copyButton.addEventListener("click", (event) => {
       event.preventDefault();
       this.handlers.onCopyLink();
     });
 
-    this.cancelButton = this.createButton("x", "取消", "pdfhl-float-cancel");
+    this.cancelButton = this.createButton("x", strings.floatCancel, "pdfhl-float-cancel");
     this.cancelButton.addEventListener("click", (event) => {
       event.preventDefault();
       this.hide();

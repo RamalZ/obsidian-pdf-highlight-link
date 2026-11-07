@@ -116,6 +116,9 @@ class TFile {
 }
 
 function setIcon() {}
+function getLanguage() {
+  return "zh";
+}
 function parseLinktext(linktext) {
   const hashIndex = linktext.indexOf("#");
   if (hashIndex < 0) return { path: linktext, subpath: "" };
@@ -133,5 +136,6 @@ module.exports = {
   Notice,
   TFile,
   setIcon,
+  getLanguage,
   parseLinktext,
 };

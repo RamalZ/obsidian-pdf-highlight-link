@@ -1,6 +1,7 @@
 import type { BvLike, HighlightEntry } from "../types.ts";
 import { toPercentStyle } from "../core/geometry.ts";
 import { entrySnippet } from "../core/link.ts";
+import { getStrings } from "../i18n/strings.ts";
 import { getPageElement, getPageElements, getViewerContainer, isViewerAlive } from "./pdf-viewer-api.ts";
 
 /** 页面内覆盖层 class（每页一个） */
@@ -113,7 +114,7 @@ export class HighlightRenderer {
       item.style.height = style.height;
       item.dataset.entryId = entry.id;
       item.dataset.kind = entry.kind;
-      item.title = `${entry.page} 页 · ${entrySnippet(entry.text, entry.kind)}`;
+      item.title = getStrings().panelPageTitle(entry.page, entrySnippet(entry.text, entry.kind));
       this.itemElements.set(entry.id, item);
     }
   }

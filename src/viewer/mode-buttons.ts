@@ -1,4 +1,5 @@
 import { setIcon } from "obsidian";
+import { getStrings } from "../i18n/strings.ts";
 import type { ActiveMode, HighlightMode } from "../types.ts";
 
 export interface ModeButtonsHandle {
@@ -9,38 +10,47 @@ export interface ModeButtonsHandle {
   destroy(): void;
 }
 
+export interface ModeButtonsOptions {
+  /** 原生工具栏需要 pdf-toolbar-spacer；内嵌 overlay 不需要 */
+  withSpacer?: boolean;
+}
+
 interface ButtonSpec {
   mode: HighlightMode;
   icon: string;
-  label: string;
 }
 
 const BUTTONS: ButtonSpec[] = [
-  { mode: "text", icon: "type", label: "文字模式：选中文字后复制链接；再点一次退出到无模式" },
-  { mode: "rect", icon: "scan", label: "框选模式：拖拽矩形后复制链接；再点一次退出到无模式" },
+  { mode: "text", icon: "type" },
+  { mode: "rect", icon: "scan" },
 ];
 
 /**
- * 在 PDF 工具栏右侧创建模式切换按钮（三态：无模式 / 文字 / 框选）。
+ * 在 PDF 工具栏右侧（或内嵌 PDF 的 overlay）创建模式切换按钮（三态：无模式 / 文字 / 框选）。
  * 点击当前已激活的按钮表示退出到「无模式」，由调用方通过 setMode 反映最终状态。
- * 容器由 Obsidian 传入（toolbarRightEl）；工具栏重建时调用方会重新创建。
+ * 容器由调用方传入；工具栏重建时调用方会重新创建。
  */
 export function createModeButtons(
   toolbarRightEl: HTMLElement,
   initialMode: ActiveMode,
   onSelect: (mode: HighlightMode) => void,
+  options: ModeButtonsOptions = {},
 ): ModeButtonsHandle {
   const created: HTMLElement[] = [];
+  const strings = getStrings();
 
-  // 与内置按钮保持一致的分隔间距
-  const spacer = toolbarRightEl.createDiv({ cls: "pdf-toolbar-spacer" });
-  created.push(spacer);
+  // 与内置按钮保持一致的分隔间距（内嵌 overlay 不需要）
+  if (options.withSpacer !== false) {
+    const spacer = toolbarRightEl.createDiv({ cls: "pdf-toolbar-spacer" });
+    created.push(spacer);
+  }
 
   const buttons = new Map<HighlightMode, HTMLElement>();
 
   for (const spec of BUTTONS) {
+    const label = spec.mode === "text" ? strings.modeTextLabel : strings.modeRectLabel;
     const button = toolbarRightEl.createDiv({ cls: "clickable-icon pdfhl-mode-btn" });
-    button.setAttribute("aria-label", spec.label);
+    button.setAttribute("aria-label", label);
     button.setAttribute("data-tooltip-position", "bottom");
     button.tabIndex = 0;
     button.dataset.mode = spec.mode;

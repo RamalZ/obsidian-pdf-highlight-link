@@ -1,5 +1,6 @@
 import { PluginSettingTab, Setting } from "obsidian";
 import type { App } from "obsidian";
+import { getStrings } from "../i18n/strings.ts";
 import type PdfHighlightLinkPlugin from "../main.ts";
 import type { ActiveMode, HighlightColor, PdfHighlightSettings } from "../types.ts";
 
@@ -19,21 +20,27 @@ export const DEFAULT_SETTINGS: PdfHighlightSettings = {
 };
 
 /** 交互模式选项（工具栏、设置下拉共用） */
-export const MODE_OPTIONS: Array<{ value: ActiveMode; label: string }> = [
-  { value: "none", label: "无模式（正常浏览）" },
-  { value: "text", label: "文字模式" },
-  { value: "rect", label: "框选模式" },
-];
+export function getModeOptions(): Array<{ value: ActiveMode; label: string }> {
+  const strings = getStrings();
+  return [
+    { value: "none", label: strings.modeNoneName },
+    { value: "text", label: strings.modeTextName },
+    { value: "rect", label: strings.modeRectName },
+  ];
+}
 
 const VALID_MODES: ActiveMode[] = ["none", "text", "rect"];
 
 /** 颜色选项（面板色点、设置下拉共用） */
-export const COLOR_OPTIONS: Array<{ value: HighlightColor; label: string }> = [
-  { value: "yellow", label: "黄色" },
-  { value: "green", label: "绿色" },
-  { value: "blue", label: "蓝色" },
-  { value: "pink", label: "粉色" },
-];
+export function getColorOptions(): Array<{ value: HighlightColor; label: string }> {
+  const strings = getStrings();
+  return [
+    { value: "yellow", label: strings.colorYellow },
+    { value: "green", label: strings.colorGreen },
+    { value: "blue", label: strings.colorBlue },
+    { value: "pink", label: strings.colorPink },
+  ];
+}
 
 const VALID_COLORS: HighlightColor[] = ["yellow", "green", "blue", "pink"];
 
@@ -65,13 +72,14 @@ export class PdfHighlightSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
+    const strings = getStrings();
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("默认模式")
-      .setDesc("打开 PDF 时的初始模式。默认「无模式」不干预鼠标；在 PDF 工具栏点按钮或按 T 键可随时切换。")
+      .setName(strings.settingDefaultModeName)
+      .setDesc(strings.settingDefaultModeDesc)
       .addDropdown((dropdown) => {
-        for (const option of MODE_OPTIONS) dropdown.addOption(option.value, option.label);
+        for (const option of getModeOptions()) dropdown.addOption(option.value, option.label);
         dropdown
           .setValue(this.plugin.settings.defaultMode)
           .onChange(async (value) => {
@@ -85,10 +93,10 @@ export class PdfHighlightSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("高亮颜色")
-      .setDesc("所有 PDF 高亮统一使用这一颜色（不写进链接，可随时改）。")
+      .setName(strings.settingColorName)
+      .setDesc(strings.settingColorDesc)
       .addDropdown((dropdown) => {
-        for (const option of COLOR_OPTIONS) dropdown.addOption(option.value, option.label);
+        for (const option of getColorOptions()) dropdown.addOption(option.value, option.label);
         dropdown.setValue(this.plugin.settings.color).onChange(async (value) => {
           const color = VALID_COLORS.includes(value as HighlightColor)
             ? (value as HighlightColor)
@@ -100,8 +108,8 @@ export class PdfHighlightSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("高亮透明度")
-      .setDesc("0.1 – 0.8，默认 0.35。只影响显示，不改变链接。")
+      .setName(strings.settingOpacityName)
+      .setDesc(strings.settingOpacityDesc)
       .addSlider((slider) => {
         slider
           .setLimits(0.1, 0.8, 0.05)
@@ -115,10 +123,10 @@ export class PdfHighlightSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("恢复默认设置")
-      .setDesc("把默认模式、颜色、透明度恢复为初始值。")
+      .setName(strings.settingRestoreName)
+      .setDesc(strings.settingRestoreDesc)
       .addButton((button) => {
-        button.setButtonText("恢复默认").onClick(async () => {
+        button.setButtonText(strings.settingRestoreButton).onClick(async () => {
           this.plugin.settings = { ...DEFAULT_SETTINGS };
           await this.plugin.saveSettings();
           this.plugin.setMode(DEFAULT_SETTINGS.defaultMode);

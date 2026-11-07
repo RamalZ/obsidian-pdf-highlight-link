@@ -1,5 +1,6 @@
 import type { App, TFile } from "obsidian";
 import type { HighlightMode, NormRect, ParsedHighlight } from "../types.ts";
+import { getStrings } from "../i18n/strings.ts";
 
 /** 坐标保留的小数位数（4 位 ≈ 页面千分之一像素级，足够精确且链接短） */
 export const COORD_PRECISION = 4;
@@ -178,14 +179,14 @@ export function sanitizeAlias(input: string | null | undefined): string {
 export function resolveAlias(input: string | null | undefined, kind: HighlightMode): string {
   const alias = sanitizeAlias(input);
   if (alias) return alias;
-  return kind === "text" ? "文字高亮" : "区域批注";
+  return getStrings().aliasForKind(kind);
 }
 
 /** 面板里展示的内容片段：文字型取前 30 字，区域型固定文案 */
 export function entrySnippet(text: string, kind: HighlightMode): string {
-  if (kind === "rect") return "区域批注";
+  if (kind === "rect") return getStrings().snippetFallback(kind);
   const cleaned = sanitizeAlias(text);
-  if (!cleaned) return "文字高亮";
+  if (!cleaned) return getStrings().snippetFallback(kind);
   return cleaned.length > 30 ? `${cleaned.slice(0, 30)}…` : cleaned;
 }
 
@@ -218,7 +219,7 @@ export function createPdfLink(
  * 引用块里链接的别名：跟 Obsidian 原生 PDF 引用保持一致，形如「文件名.pdf, 第 3 页」。
  */
 export function buildLinkAlias(fileName: string, page: number): string {
-  return `${fileName}, 第 ${page} 页`;
+  return getStrings().aliasForPage(fileName, page);
 }
 
 /**
@@ -236,7 +237,7 @@ export function buildReferenceBlock(
   kind: HighlightMode,
   quoteText: string | null | undefined,
 ): string {
-  const placeholder = "（此处由使用者根据区域内容自行填写）";
+  const placeholder = getStrings().referencePlaceholder;
   const source = (quoteText ?? "").length > 0 ? (quoteText ?? "") : kind === "rect" ? placeholder : "";
   const lines = source
     .replace(/\r\n?/g, "\n")

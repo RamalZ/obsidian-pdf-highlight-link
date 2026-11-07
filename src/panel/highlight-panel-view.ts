@@ -3,6 +3,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import type PdfHighlightLinkPlugin from "../main.ts";
 import type { HighlightEntry } from "../types.ts";
 import type { TFile } from "obsidian";
+import { getStrings } from "../i18n/strings.ts";
 import { groupByPage, sourceDisplayName } from "../core/backlink-index.ts";
 import { entrySnippet } from "../core/link.ts";
 import type { ViewerBinding } from "../viewer/viewer-binding.ts";
@@ -31,7 +32,7 @@ export class HighlightPanelView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "PDF 高亮";
+    return getStrings().panelTitle;
   }
 
   getIcon(): string {
@@ -40,15 +41,16 @@ export class HighlightPanelView extends ItemView {
 
   async onOpen(): Promise<void> {
     const container = this.contentEl;
+    const strings = getStrings();
     container.empty();
     container.addClass("pdfhl-panel");
 
     const header = container.createDiv({ cls: "pdfhl-panel-header" });
     const titleRow = header.createDiv({ cls: "pdfhl-panel-title-row" });
-    titleRow.createDiv({ cls: "pdfhl-panel-title", text: "PDF 高亮" });
+    titleRow.createDiv({ cls: "pdfhl-panel-title", text: strings.panelTitle });
     const refreshButton = titleRow.createEl("button", {
       cls: "clickable-icon",
-      attr: { "aria-label": "刷新高亮" },
+      attr: { "aria-label": strings.panelRefreshAria },
     });
     setIcon(refreshButton, "refresh-cw");
     refreshButton.addEventListener("click", () => this.refresh(true));
@@ -58,7 +60,7 @@ export class HighlightPanelView extends ItemView {
     setIcon(searchIcon, "search");
     const input = search.createEl("input", {
       type: "search",
-      placeholder: "搜索高亮内容或页码…",
+      placeholder: strings.panelSearchPlaceholder,
       cls: "pdfhl-search-input",
     });
     input.addEventListener("input", () => {
@@ -100,12 +102,13 @@ export class HighlightPanelView extends ItemView {
     const summary = this.summaryEl;
     if (!summary) return;
     summary.empty();
+    const strings = getStrings();
     if (!this.file) {
-      summary.setText("未检测到打开的 PDF");
+      summary.setText(strings.panelNoPdf);
       return;
     }
     summary.createSpan({ text: this.file.basename });
-    summary.createSpan({ cls: "pdfhl-panel-count", text: `${this.entries.length} 条高亮` });
+    summary.createSpan({ cls: "pdfhl-panel-count", text: strings.panelCount(this.entries.length) });
   }
 
   private renderList(): void {
@@ -113,10 +116,11 @@ export class HighlightPanelView extends ItemView {
     if (!list) return;
     list.empty();
 
+    const strings = getStrings();
     if (!this.file) {
       list.createDiv({
         cls: "pdfhl-panel-empty",
-        text: "打开一个 PDF 文件后，这里会按页列出它的高亮。",
+        text: strings.panelEmptyNoPdf,
       });
       return;
     }
@@ -125,12 +129,12 @@ export class HighlightPanelView extends ItemView {
     if (this.entries.length === 0) {
       list.createDiv({
         cls: "pdfhl-panel-empty",
-        text: "还没有高亮。在 PDF 里选中文字或框选区域，复制链接并粘贴到笔记即可。",
+        text: strings.panelEmptyNoHighlights,
       });
       return;
     }
     if (filtered.length === 0) {
-      list.createDiv({ cls: "pdfhl-panel-empty", text: "没有匹配的高亮。" });
+      list.createDiv({ cls: "pdfhl-panel-empty", text: strings.panelEmptyNoMatch });
       return;
     }
 
@@ -139,8 +143,8 @@ export class HighlightPanelView extends ItemView {
     for (const group of groups) {
       const groupEl = list.createDiv({ cls: "pdfhl-panel-group" });
       const groupTitle = groupEl.createDiv({ cls: "pdfhl-panel-group-title" });
-      groupTitle.createSpan({ text: `第 ${group.page} 页` });
-      groupTitle.createSpan({ cls: "pdfhl-panel-group-count", text: `${group.entries.length} 条` });
+      groupTitle.createSpan({ text: strings.panelPageGroup(group.page) });
+      groupTitle.createSpan({ cls: "pdfhl-panel-group-count", text: strings.panelGroupCount(group.entries.length) });
 
       for (const entry of group.entries) {
         this.renderItem(groupEl, entry, binding);
@@ -149,18 +153,22 @@ export class HighlightPanelView extends ItemView {
   }
 
   private renderItem(parent: HTMLElement, entry: HighlightEntry, binding: ViewerBinding | null): void {
+    const strings = getStrings();
     const item = parent.createDiv({ cls: "pdfhl-panel-item" });
     item.dataset.entryId = entry.id;
     item.dataset.kind = entry.kind;
-    item.title = `${entry.page} 页 · ${entrySnippet(entry.text, entry.kind)}`;
+    item.title = strings.panelPageTitle(entry.page, entrySnippet(entry.text, entry.kind));
 
     const dot = item.createDiv({ cls: "pdfhl-panel-dot" });
     dot.style.backgroundColor = this.plugin.getColorHex();
 
     const main = item.createDiv({ cls: "pdfhl-panel-item-main" });
     const meta = main.createDiv({ cls: "pdfhl-panel-item-meta" });
-    meta.createSpan({ cls: "pdfhl-panel-kind", text: entry.kind === "text" ? "文字" : "区域" });
-    meta.createSpan({ cls: "pdfhl-panel-page", text: `第 ${entry.page} 页` });
+    meta.createSpan({
+      cls: "pdfhl-panel-kind",
+      text: entry.kind === "text" ? strings.panelKindText : strings.panelKindRect,
+    });
+    meta.createSpan({ cls: "pdfhl-panel-page", text: strings.panelPageGroup(entry.page) });
     main.createDiv({ cls: "pdfhl-panel-snippet", text: entrySnippet(entry.text, entry.kind) });
 
     // 来源笔记：单独一行小链接，点击打开笔记并定位到那一行（不影响条目本身的跳页）
@@ -170,7 +178,7 @@ export class HighlightPanelView extends ItemView {
       text: sourceDisplayName(entry.sourcePath),
       href: "#",
     });
-    sourceLink.setAttribute("aria-label", `打开来源笔记：${entry.sourcePath}`);
+    sourceLink.setAttribute("aria-label", strings.panelSourceAria(entry.sourcePath));
     sourceLink.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();

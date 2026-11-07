@@ -1,6 +1,8 @@
 import { MarkdownView, Notice, Plugin, TFile } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import { HighlightPanelView, VIEW_TYPE_PDF_HIGHLIGHT_PANEL } from "./panel/highlight-panel-view.ts";
+import { detectLocale } from "./i18n/detect.ts";
+import { getStrings, setLocale } from "./i18n/strings.ts";
 import { DEFAULT_SETTINGS, normalizeSettings, PdfHighlightSettingTab, SETTINGS_SCHEMA_VERSION } from "./settings/settings-tab.ts";
 import type { ActiveMode, BvLike, HighlightColor, HighlightEntry, HighlightMode, PdfHighlightSettings } from "./types.ts";
 import { describeViewer, restoreApplySubpathPatch } from "./viewer/pdf-viewer-api.ts";
@@ -29,33 +31,36 @@ export default class PdfHighlightLinkPlugin extends Plugin {
   private panelRefreshTimer: number | null = null;
 
   async onload(): Promise<void> {
+    // 必须在任何 UI 文案生成前完成：命令、ribbon、面板、设置都从这里取语言
+    setLocale(detectLocale());
+    const strings = getStrings();
     await this.loadSettings();
     this.mode = this.settings.defaultMode;
 
     this.registerView(VIEW_TYPE_PDF_HIGHLIGHT_PANEL, (leaf) => new HighlightPanelView(leaf, this));
 
-    this.addRibbonIcon("highlighter", "打开 PDF 高亮面板", () => {
+    this.addRibbonIcon("highlighter", strings.ribbonOpenPanel, () => {
       void this.activatePanel();
     });
 
     this.addCommand({
       id: "open-highlight-panel",
-      name: "打开高亮面板",
+      name: strings.commandOpenPanel,
       callback: () => {
         void this.activatePanel();
       },
     });
     this.addCommand({
       id: "refresh-highlights",
-      name: "刷新高亮",
+      name: strings.commandRefresh,
       callback: () => {
         this.viewerManager.refreshAll();
-        new Notice("已刷新 PDF 高亮");
+        new Notice(getStrings().noticeRefreshed);
       },
     });
     this.addCommand({
       id: "diagnose-pdf-viewer",
-      name: "诊断 PDF 视图（输出到控制台）",
+      name: strings.commandDiagnose,
       callback: () => this.diagnoseViewer(),
     });
 
@@ -140,9 +145,10 @@ export default class PdfHighlightLinkPlugin extends Plugin {
 
   /** 打开高亮所在的笔记，并把视图定位到那一行链接 */
   async openSourceNote(entry: HighlightEntry): Promise<void> {
+    const strings = getStrings();
     const file = this.app.vault.getAbstractFileByPath(entry.sourcePath);
     if (!(file instanceof TFile)) {
-      new Notice(`找不到来源笔记：${entry.sourcePath}`);
+      new Notice(strings.noticeSourceNotFound(entry.sourcePath));
       return;
     }
 
@@ -166,7 +172,7 @@ export default class PdfHighlightLinkPlugin extends Plugin {
         await leaf.openFile(file, { eState: { line: Math.max(0, entry.line) } });
       } catch (error) {
         console.error("[pdfhl] 打开来源笔记失败", error);
-        new Notice("打开来源笔记失败");
+        new Notice(strings.noticeOpenSourceFailed);
         return;
       }
     }
@@ -189,14 +195,16 @@ export default class PdfHighlightLinkPlugin extends Plugin {
    * 不依赖调试器，用户点一次命令即可回报结果。
    */
   private diagnoseViewer(): void {
+    const strings = getStrings();
     const leaves = this.app.workspace.getLeavesOfType("pdf");
-    const appVersion = (this.app as unknown as { appVersion?: string }).appVersion ?? "未知";
-    if (leaves.length === 0) {
-      new Notice("当前没有打开的 PDF 视图");
+    const embedBindings = this.viewerManager.getEmbedBindings();
+    const appVersion = (this.app as unknown as { appVersion?: string }).appVersion ?? "unknown";
+    if (leaves.length === 0 && embedBindings.length === 0) {
+      new Notice(strings.noticeNoPdfView);
       return;
     }
 
-    console.groupCollapsed(`[pdfhl] PDF 视图诊断（Obsidian ${appVersion}，${leaves.length} 个叶子）`);
+    console.groupCollapsed(strings.diagnoseTitle(appVersion, leaves.length, embedBindings.length));
     for (const leaf of leaves) {
       const raw = (leaf.view as unknown as { viewer?: unknown }).viewer;
       const wrapper = raw as { child?: unknown } | null;
@@ -219,8 +227,24 @@ export default class PdfHighlightLinkPlugin extends Plugin {
           : "无绑定",
       );
     }
+
+    if (embedBindings.length === 0) {
+      console.log(strings.diagnoseNoEmbed);
+    } else {
+      for (const [index, binding] of embedBindings.entries()) {
+        console.log(`内嵌 #${index + 1}：`, binding.getHostInfo());
+        console.log(
+          "绑定状态：",
+          {
+            alive: binding.isAlive(),
+            entries: binding.getEntries().length,
+            file: binding.getPdfFile()?.path ?? null,
+          },
+        );
+      }
+    }
     console.groupEnd();
-    new Notice("诊断信息已输出到开发者控制台（Ctrl+Shift+I）");
+    new Notice(strings.noticeDiagnostics);
   }
 
   // -------------------------------------------------------------------------
@@ -264,7 +288,7 @@ export default class PdfHighlightLinkPlugin extends Plugin {
     }
     const leaf: WorkspaceLeaf | null = this.app.workspace.getRightLeaf(false);
     if (!leaf) {
-      new Notice("无法打开右侧面板，请稍后重试");
+      new Notice(getStrings().noticeNoRightPanel);
       return;
     }
     await leaf.setViewState({ type: VIEW_TYPE_PDF_HIGHLIGHT_PANEL, active: true });

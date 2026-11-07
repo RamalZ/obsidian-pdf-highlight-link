@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Select text or drag a rectangle in Obsidian's built-in PDF viewer, copy a Markdown link to that spot, paste it into a note — and the next time you open that PDF, the highlight is drawn right there.
+Select text or drag a rectangle in Obsidian's built-in PDF viewer — in a PDF tab or embedded in a note — copy a Markdown link to that spot, paste it into a note, and the next time you open that PDF the highlight is drawn right there.
 
 - The PDF file is never modified; highlights are derived entirely from backlinks
 - Reuses Obsidian's bundled PDF.js viewer, no third-party runtime dependencies
@@ -11,6 +11,7 @@ Select text or drag a rectangle in Obsidian's built-in PDF viewer, copy a Markdo
 ## Features
 
 - **Three-state mode**: the default is **off** — the PDF behaves exactly like the stock viewer. Click **Text mode** or **Rectangle mode** on the right side of the toolbar to enter a mode; click the same button (or press `T` in text mode) to go back to off.
+- **Embedded PDFs**: PDFs embedded with `![[file.pdf]]` support the same highlights, text/rectangle modes, link copying, and sidebar panel. Obsidian hides the native toolbar for ordinary embeds, so the plugin shows its mode buttons in the PDF's top-right corner on hover/focus; canvas embeds keep the native toolbar.
 - **Text mode**: select text → a floating toolbar appears → **Copy reference** or **Copy link**
 - **Rectangle mode**: drag a rectangle → release → the same floating toolbar appears
 - **Copy reference** mirrors Obsidian's native PDF reference — a quote line, an empty line, then the link. For text selections the selected text becomes the quote line; for rectangles a placeholder sentence is emitted for you to fill in:
@@ -18,37 +19,38 @@ Select text or drag a rectangle in Obsidian's built-in PDF viewer, copy a Markdo
   ```markdown
   > the piece of text you selected
 
-  [[paper.pdf#page=3&selection=0.12,0.34,0.56,0.35|paper.pdf, 第 3 页]]
+  [[paper.pdf#page=3&selection=0.12,0.34,0.56,0.35|paper.pdf, page 3]]
   ```
 
   ```markdown
-  > （此处由使用者根据区域内容自行填写）
+  > (Describe the region content here)
 
-  [[paper.pdf#page=5&rect=0.1,0.2,0.3,0.4|paper.pdf, 第 5 页]]
+  [[paper.pdf#page=5&rect=0.1,0.2,0.3,0.4|paper.pdf, page 5]]
   ```
 
 - **Copy link** copies just the `[[file.pdf#page=...|file.pdf, 第 X 页]]` link
 - **Highlight rendering**: on open, backlinks are read from `metadataCache`, `page` / `selection` / `rect` are parsed, and overlays are drawn on the page
 - **Sidebar panel**: all highlights of the current PDF grouped by page (color dot, snippet, source note), with a search filter. Click an entry to jump to the page and flash it; click the small link underneath to open the source note at that line
 - **Settings**: default mode (off / text / rectangle), highlight color (yellow / green / blue / pink), opacity
+- **Localized UI**: commands, ribbon, toolbar buttons, floating toolbar, sidebar panel, settings, and notices follow Obsidian's interface language (Simplified Chinese / Traditional Chinese / English); unsupported languages fall back to English
 
 ## Link format
 
 Text selection (the coordinates are two **opposite corners**):
 
 ```
-[[file.pdf#page=3&selection=0.12,0.34,0.56,0.35|file.pdf, 第 3 页]]
+[[file.pdf#page=3&selection=0.12,0.34,0.56,0.35|file.pdf, page 3]]
 ```
 
 Rectangle selection (the coordinates are **top-left corner + width/height**):
 
 ```
-[[file.pdf#page=5&rect=0.12,0.34,0.21,0.08|file.pdf, 第 5 页]]
+[[file.pdf#page=5&rect=0.12,0.34,0.21,0.08|file.pdf, page 5]]
 ```
 
 Coordinates are always **ratios of the page content box (0–1, four decimals)**, never pixels, so they survive zooming, panning and different screens. Multi-line selections use the bounding box of all lines; selections spanning pages are anchored to the first page.
 
-The alias produced by both **Copy reference** and **Copy link** is always `file.pdf, 第 X 页` (matching Obsidian's native PDF reference), so the selected text does not occupy the alias — the panel reads text snippets back from the quote line above the link.
+The alias produced by both **Copy reference** and **Copy link** follows the current interface language: Simplified Chinese `文件.pdf, 第 X 页`, Traditional Chinese `檔案.pdf, 第 X 頁`, or English `file.pdf, page X` (matching Obsidian's native PDF reference). The selected text therefore does not occupy the alias — the panel reads text snippets back from the quote line above the link. Links in all three formats are recognized.
 
 > **Relationship to native Obsidian PDF links**: the native parser treats `selection=` as character indices (`parseInt`), so our floating-point coordinates would degrade to `[0,0]-[0,0]` and paint a text-erasing highlight on the first text block of the page. The plugin temporarily strips the floating-point `selection=` parameter before handing the subpath to the native viewer (page navigation is preserved) and clears any degenerate highlight on `textlayerrendered`.
 >
@@ -154,13 +156,17 @@ src/
     backlink-index.ts         build the highlight index from metadataCache backlinks
   viewer/
     pdf-viewer-api.ts         access the internal PDF component, suppress the degenerate native highlight
-    viewer-manager.ts         track PDF leaves and maintain bindings
-    viewer-binding.ts         per-leaf orchestration: mode, capture, rendering, copying
+    viewer-manager.ts         track PDF leaves and embedded PDFs, maintain bindings
+    viewer-host.ts            distinguish PDF-leaf and embedded-PDF hosts
+    viewer-binding.ts         per-host orchestration: mode, capture, rendering, copying
     mode-buttons.ts           toolbar mode buttons
     float-toolbar.ts          floating toolbar for selections
     selection-capture.ts      text selection → normalized rectangle
     rect-capture.ts           drag selection → normalized rectangle
     highlight-renderer.ts     percentage overlay inside each page
+  i18n/
+    strings.ts                Simplified Chinese / Traditional Chinese / English strings, link aliases, native-alias detection
+    detect.ts                 read Obsidian's interface language with fallbacks for older versions
   panel/highlight-panel-view.ts  sidebar highlight panel
   settings/settings-tab.ts       settings tab
 test/
@@ -183,12 +189,42 @@ Common symptoms and causes:
 
 - Text highlights are **bounding rectangles**, not per-line shapes; multi-line selections cover the gaps between lines
 - The panel's source-note link opens the note in a new tab (or switches to it if already open) and never replaces the current PDF tab
-- Only standalone PDF leaves (`pdf` view) are handled; embedded `![[x.pdf]]` previews are not
+- Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and do not cover the PDF content
 - Highlights come from backlinks: delete or break a link and its highlight disappears; there is no in-PDF editor for editing or deleting highlights
 - Color and opacity are global settings, not encoded in the link (the same link shows in the default color in another vault)
 - Copying only writes to the clipboard; nothing is inserted into a note automatically
 - The plugin depends on Obsidian's internal PDF component (private fields of the `pdf` view) and may need adaptation after a major upgrade; every access is feature-detected and degrades instead of throwing
 - The deploy script's interactive picker needs a real TTY; use `--vault` in CI or pipelines
+
+## Changelog
+
+> Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.0
+
+**Added**
+
+- Embedded PDFs: `![[file.pdf]]` in reading view, Live Preview, and canvas now supports highlights, text/rectangle modes, link copying, and the sidebar panel.
+- Obsidian hides the native toolbar for ordinary embeds, so mode buttons are shown in a top-right overlay (on hover/focus); canvas embeds keep the native toolbar.
+- Localized UI: commands, ribbon, PDF toolbar, floating toolbar, sidebar panel, settings, and notices support Simplified Chinese / Traditional Chinese / English, with English as the fallback.
+- Link aliases follow the interface language, while links in all three alias formats remain recognized; locale normalization now handles full tags such as `zh-Hant-TW` and `zh-Hans-CN`.
+- The diagnose command now reports embedded-PDF bindings.
+
+**Changed**
+
+- `ViewerBinding` no longer assumes a `WorkspaceLeaf`; it uses a host abstraction (`LeafViewerHost` / `EmbedViewerHost`) so tabs and embeds share the same interaction and rendering logic.
+- Link copying for an embedded PDF resolves the relative path from the note that contains it.
+- README and installation guide now cover embedded PDFs and language switching; the old “embedded PDFs are not supported” limitation was removed.
+
+**Fixed**
+
+- The `Component.addChild` capture hook now targets the prototype that actually owns the method, instead of stopping at the plugin subclass prototype and missing Obsidian-created embeds.
+- Hidden embedded-mode controls no longer intercept pointer events.
+- Remaining hardcoded strings in highlight tooltips and copy success/failure notices now use i18n.
+
+### 0.1.0
+
+- Initial release: text/rectangle highlights in PDF tabs, copy reference/link, sidebar highlight panel, and color/opacity/default-mode settings.
 
 ## License
 

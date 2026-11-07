@@ -125,6 +125,36 @@
   background: var(--background-modifier-hover);
 }
 
+/* 内嵌 PDF 的原生工具栏被 Obsidian 隐藏，改用自绘控件 */
+.pdfhl-embed-controls {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s, 0 2px 8px rgba(0, 0, 0, 0.2));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.pdf-embed:hover > .pdfhl-embed-controls,
+.pdf-embed:focus-within > .pdfhl-embed-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pdfhl-embed-controls .pdfhl-mode-btn {
+  width: 24px;
+  height: 24px;
+}
+
 /* --- 右侧面板 ------------------------------------------------------------ */
 
 .pdfhl-panel {

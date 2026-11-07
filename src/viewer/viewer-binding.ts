@@ -9,6 +9,7 @@ import {
   copyTextToClipboard,
   createPdfLink,
 } from "../core/link.ts";
+import { getStrings } from "../i18n/strings.ts";
 import { FloatToolbar } from "./float-toolbar.ts";
 import { HighlightRenderer } from "./highlight-renderer.ts";
 import { createModeButtons, type ModeButtonsHandle } from "./mode-buttons.ts";
@@ -21,6 +22,7 @@ import {
 } from "./pdf-viewer-api.ts";
 import { RectCapture } from "./rect-capture.ts";
 import { SelectionCapture } from "./selection-capture.ts";
+import type { ViewerHost, ViewerHostInfo } from "./viewer-host.ts";
 
 type PendingSelection =
   | { kind: "text"; page: number; rect: NormRect; alias: string }
@@ -35,14 +37,17 @@ interface ViewerEventPayload {
  * 生命周期由 ViewerManager 管理；destroy 后不再持有 DOM 引用。
  */
 export class ViewerBinding {
-  readonly leaf: WorkspaceLeaf;
+  readonly leaf: WorkspaceLeaf | null;
   readonly bv: BvLike;
 
   private plugin: PdfHighlightLinkPlugin;
+  private host: ViewerHost;
   private container: HTMLElement;
   private renderer: HighlightRenderer;
   private toolbar: FloatToolbar | null = null;
   private modeButtons: ModeButtonsHandle | null = null;
+  /** 普通内嵌 PDF 的原生工具栏被 CSS 隐藏，用自绘 overlay 承载模式按钮 */
+  private overlay: HTMLElement | null = null;
   private selectionCapture: SelectionCapture | null = null;
   private rectCapture: RectCapture | null = null;
   private entries: HighlightEntry[] = [];
@@ -62,9 +67,10 @@ export class ViewerBinding {
   private refreshToken = 0;
   private destroyed = false;
 
-  constructor(plugin: PdfHighlightLinkPlugin, leaf: WorkspaceLeaf, bv: BvLike) {
+  constructor(plugin: PdfHighlightLinkPlugin, host: ViewerHost, bv: BvLike) {
     this.plugin = plugin;
-    this.leaf = leaf;
+    this.host = host;
+    this.leaf = host.leaf;
     this.bv = bv;
     this.container = getViewerContainer(bv);
     this.renderer = new HighlightRenderer(bv);
@@ -172,8 +178,7 @@ export class ViewerBinding {
   }
 
   private registerScopeShortcut(): void {
-    const view = this.leaf.view as unknown as { scope?: Scope };
-    const scope = view.scope;
+    const scope = this.host.getScope();
     if (!scope || typeof scope.register !== "function") return;
     this.scopeRef = scope;
     this.scopeHandler = scope.register([], "t", () => {
@@ -184,14 +189,51 @@ export class ViewerBinding {
   }
 
   private ensureModeButtons(): void {
-    const toolbarRight = this.bv.toolbar?.toolbarRightEl;
-    if (!toolbarRight) return;
+    if (this.destroyed) return;
+    const toolbarRight = this.bv.toolbar?.toolbarRightEl ?? null;
+    if (toolbarRight && !this.host.useOverlayControls()) {
+      this.destroyOverlay();
+      this.ensureNativeModeButtons(toolbarRight);
+      return;
+    }
+    if (this.host.kind === "embed") {
+      this.modeButtons?.destroy();
+      this.modeButtons = null;
+      this.ensureOverlayControls();
+      return;
+    }
+    if (toolbarRight) this.ensureNativeModeButtons(toolbarRight);
+  }
+
+  private ensureNativeModeButtons(toolbarRight: HTMLElement): void {
     if (this.modeButtons?.isAttached()) return;
     this.modeButtons?.destroy();
     this.modeButtons = createModeButtons(toolbarRight, this.plugin.getMode(), (mode) => {
       // 三态切换：再点已激活的模式即退出到无模式
       this.plugin.toggleMode(mode);
     });
+  }
+
+  /** 普通内嵌 PDF：在 .pdf-embed 内创建一直可见的模式按钮 */
+  private ensureOverlayControls(): void {
+    if (this.destroyed) return;
+    const parent = this.host.getOverlayParent();
+    if (this.overlay && this.overlay.parentElement === parent && this.modeButtons?.isAttached()) return;
+    this.modeButtons?.destroy();
+    this.modeButtons = null;
+    this.destroyOverlay();
+    this.overlay = parent.createDiv({ cls: "pdfhl-embed-controls" });
+    this.modeButtons = createModeButtons(
+      this.overlay,
+      this.plugin.getMode(),
+      (mode) => this.plugin.toggleMode(mode),
+      { withSpacer: false },
+    );
+  }
+
+  private destroyOverlay(): void {
+    this.overlay?.remove();
+    this.overlay = null;
   }
 
   // -------------------------------------------------------------------------
@@ -243,9 +285,10 @@ export class ViewerBinding {
   private async copyPending(format: "link" | "reference"): Promise<void> {
     const pending = this.pending;
     if (!pending) return;
+    const strings = getStrings();
     const file = this.getPdfFile();
     if (!file) {
-      new Notice("未能识别当前 PDF 文件，链接复制失败");
+      new Notice(strings.noticePdfFileMissing);
       return;
     }
 
@@ -254,7 +297,7 @@ export class ViewerBinding {
     const link = createPdfLink(
       this.plugin.app,
       file,
-      this.plugin.getSourcePath(),
+      this.host.getSourcePath(),
       pending.page,
       pending.kind,
       pending.rect,
@@ -268,11 +311,11 @@ export class ViewerBinding {
     const copied = await copyTextToClipboard(payload);
     if (copied) {
       new Notice(
-        format === "reference" ? "已复制引用块，粘贴到笔记即可" : "已复制 PDF 高亮链接，粘贴到笔记即可",
+        format === "reference" ? strings.noticeCopiedReference : strings.noticeCopiedLink,
       );
       this.hideToolbar();
     } else {
-      new Notice("复制失败，请检查剪贴板权限");
+      new Notice(strings.noticeCopyFailed);
     }
   }
 
@@ -287,7 +330,16 @@ export class ViewerBinding {
 
   /** 绑定的滚动容器是否还在文档里（窗口迁移后 Obsidian 会重建 DOM） */
   isContainerConnected(): boolean {
-    return this.container.isConnected;
+    return this.container.isConnected && this.host.isConnected();
+  }
+
+  /** 是否为笔记内嵌绑定（诊断/面板用） */
+  isEmbed(): boolean {
+    return this.host.kind === "embed";
+  }
+
+  getHostInfo(): ViewerHostInfo {
+    return this.host.getInfo();
   }
 
   /**
@@ -341,8 +393,7 @@ export class ViewerBinding {
   }
 
   getPdfFile(): TFile | null {
-    const view = this.leaf.view as unknown as { file?: TFile | null };
-    const file = this.bv.file ?? view.file ?? null;
+    const file = this.bv.file ?? this.host.getFallbackFile() ?? null;
     if (!file || typeof file !== "object") return null;
     return file.extension === "pdf" ? file : null;
   }
@@ -441,6 +492,7 @@ export class ViewerBinding {
 
     safe("模式按钮", () => this.modeButtons?.destroy());
     this.modeButtons = null;
+    safe("内嵌控件", () => this.destroyOverlay());
     safe("浮动工具栏", () => this.toolbar?.destroy());
     this.toolbar = null;
     safe("高亮层", () => this.renderer.destroy());

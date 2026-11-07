@@ -1,4 +1,4 @@
-import type { TFile } from "obsidian";
+import type { Scope, TFile } from "obsidian";
 
 /**
  * 高亮模式（交互模式的一种）：
@@ -127,4 +127,23 @@ export interface BvLike {
   /** BV 自身的事件转发（内部走 pdfViewer.eventBus._on/_off） */
   on?(event: string, listener: (payload?: unknown) => void): void;
   off?(event: string, listener: (payload?: unknown) => void): void;
+  /** 内嵌 PDF 也可用自身的 Scope 注册快捷键 */
+  scope?: Scope;
+  /** Obsidian 传给 BV 的选项；isEmbed=true 表示笔记内嵌 */
+  opts?: { isEmbed?: boolean; [key: string]: unknown };
+}
+
+/** 内嵌 PDF 的 viewer 包装器（内部 wI 的 thenable） */
+export interface PdfEmbedViewerLike {
+  child?: BvLike | null;
+  then?(callback: (viewer: BvLike) => void): void;
+  loadFile?(file: TFile, subpath?: string): Promise<void>;
+}
+
+/** 笔记里内嵌 PDF 时由 Obsidian 创建的组件（内部 du） */
+export interface PdfEmbedComponentLike {
+  file?: TFile;
+  containerEl: HTMLElement;
+  subpath?: string;
+  viewer?: PdfEmbedViewerLike;
 }

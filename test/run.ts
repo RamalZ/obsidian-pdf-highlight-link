@@ -30,6 +30,7 @@ import {
   unionRects,
 } from "../src/core/geometry.ts";
 import { isViewerAlive, stripFloatSelectionParam } from "../src/viewer/pdf-viewer-api.ts";
+import { getStrings, normalizeLocale, setLocale } from "../src/i18n/strings.ts";
 
 let passed = 0;
 
@@ -224,6 +225,54 @@ test("buildReferenceBlock 区域型用占位文案", () => {
 test("buildLinkAlias 与原生 PDF 引用别名一致", () => {
   assert.equal(buildLinkAlias("论文.pdf", 3), "论文.pdf, 第 3 页");
   assert.equal(buildLinkAlias("a.pdf", 12), "a.pdf, 第 12 页");
+});
+
+test("normalizeLocale 归一化语言代码", () => {
+  assert.equal(normalizeLocale("zh"), "zh");
+  assert.equal(normalizeLocale("zh-CN"), "zh");
+  assert.equal(normalizeLocale("zh-Hant"), "zh-TW");
+  assert.equal(normalizeLocale("zh-Hant-TW"), "zh-TW");
+  assert.equal(normalizeLocale("zh-TW"), "zh-TW");
+  assert.equal(normalizeLocale("zh-Hans-CN"), "zh");
+  assert.equal(normalizeLocale("en-US"), "en");
+  assert.equal(normalizeLocale(""), "en");
+});
+
+test("i18n：英文别名、兜底文案与区域占位", () => {
+  try {
+    setLocale("en");
+    assert.equal(buildLinkAlias("a.pdf", 3), "a.pdf, page 3");
+    assert.equal(resolveAlias("", "text"), "Text highlight");
+    assert.equal(resolveAlias("", "rect"), "Region note");
+    assert.equal(entrySnippet("", "rect"), "Region note");
+    assert.equal(
+      buildReferenceBlock("[[a.pdf#page=2&rect=0.1,0.1,0.2,0.2]]", "rect", null),
+      "> (Describe the region content here)\n\n[[a.pdf#page=2&rect=0.1,0.1,0.2,0.2]]",
+    );
+  } finally {
+    setLocale("zh");
+  }
+});
+
+test("i18n：繁体别名与兜底文案", () => {
+  try {
+    setLocale("zh-TW");
+    assert.equal(buildLinkAlias("a.pdf", 3), "a.pdf, 第 3 頁");
+    assert.equal(resolveAlias("", "text"), "文字醒目提示");
+    assert.equal(resolveAlias("", "rect"), "區域註記");
+  } finally {
+    setLocale("zh");
+  }
+});
+
+test("i18n：原生别名模式同时识别简繁英", () => {
+  const patterns = getStrings().nativeAliasPatterns;
+  const matches = (alias: string) => patterns.some((pattern) => pattern.test(alias));
+  assert.equal(matches("a.pdf, 第 3 页"), true);
+  assert.equal(matches("a.pdf, 第 3 頁"), true);
+  assert.equal(matches("a.pdf, page 3"), true);
+  assert.equal(matches("a.pdf, Page 12"), true);
+  assert.equal(matches("a.pdf, 3 页"), false);
 });
 
 test("extractQuoteLine 从链接上方取引用行", () => {

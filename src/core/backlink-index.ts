@@ -1,6 +1,7 @@
 import { parseLinktext } from "obsidian";
 import type { App, LinkCache, TFile } from "obsidian";
 import type { HighlightEntry } from "../types.ts";
+import { getStrings } from "../i18n/strings.ts";
 import { parseHighlightSubpath, extractQuoteLine } from "./link.ts";
 
 /**
@@ -85,7 +86,8 @@ export async function buildHighlightIndex(app: App, pdfFile: TFile): Promise<Hig
 
 /** 别名形如「文件.pdf, 第 3 页」时说明文字在引用行里，别名本身没有阅读价值 */
 function looksLikeNativeAlias(text: string): boolean {
-  return /^\S+\.\w{1,5}, 第 \d+ 页$/.test(text.trim());
+  const value = text.trim();
+  return getStrings().nativeAliasPatterns.some((pattern) => pattern.test(value));
 }
 
 /**
