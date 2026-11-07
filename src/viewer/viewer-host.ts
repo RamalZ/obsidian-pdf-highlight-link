@@ -119,8 +119,8 @@ export class EmbedViewerHost implements ViewerHost {
   }
 
   useOverlayControls(): boolean {
-    // 画布里的 .pdf-embed 是 .canvas-node-content 的后代，原生工具栏仍然可见；
-    // 普通笔记内嵌则被 Obsidian 的 CSS 隐藏，需要自绘 overlay。
+    // 画布与普通笔记内嵌的原生工具栏在屏幕上通常都可见；
+    // 普通内嵌仍用 overlay，避免把插件按钮混入原生工具栏，但 overlay 会避让其右侧控件。
     return !this.containerEl.closest(".canvas-node-content");
   }
 

@@ -47,14 +47,14 @@ export class ViewerBinding {
   private renderer: HighlightRenderer;
   private toolbar: FloatToolbar | null = null;
   private modeButtons: ModeButtonsHandle | null = null;
-  /** 普通内嵌 PDF 的原生工具栏被 CSS 隐藏，用自绘 overlay 承载模式按钮 */
+  /** 普通内嵌 PDF 仍用自绘 overlay 承载模式按钮，但需避让屏幕上可见的原生右上角控件 */
   private overlay: HTMLElement | null = null;
   private overlayObserver: ResizeObserver | null = null;
   private overlayRaf: number | null = null;
   private overlayTimer: number | null = null;
   private overlayAttempts = 0;
   private overlayParent: HTMLElement | null = null;
-  private overlayActions: HTMLElement | null = null;
+  private overlayTargets: HTMLElement[] = [];
   private selectionCapture: SelectionCapture | null = null;
   private rectCapture: RectCapture | null = null;
   private entries: HighlightEntry[] = [];
@@ -252,8 +252,9 @@ export class ViewerBinding {
   }
 
   /**
-   * 把 overlay 放到原生 .embed-actions 左侧。
-   * 原生按钮由 Obsidian 渲染，位置/宽度会随主题与容器变化，因此每次测量后写 inline right。
+   * 把 overlay 放到原生右上角控件左侧。
+   * 控件既包括 .embed-actions 里的编辑块按钮，也包括 .pdf-toolbar-right 里的三点菜单；
+   * 它们由 Obsidian 渲染，位置/宽度会随主题与容器变化，因此每次测量后写 inline right。
    */
   private positionOverlay(): void {
     if (this.destroyed) return;
@@ -262,24 +263,66 @@ export class ViewerBinding {
     const parent = this.host.getOverlayParent();
     if (!parent) return;
 
+    const parentRect = parent.getBoundingClientRect();
     const actions = parent.querySelector<HTMLElement>(":scope > .embed-actions");
-    const actionsRect = actions?.getBoundingClientRect() ?? null;
-    if (!actions || !actionsRect || actionsRect.width <= 0) {
-      // 原生按钮可能比 overlay 晚挂载：先使用 CSS 回退值，再有限次重试
-      overlay.style.right = "";
-      this.observeOverlayLayout(parent, null);
-      this.scheduleOverlayRetry();
+    const toolbarRight = parent.querySelector<HTMLElement>(".pdf-toolbar-right");
+    const targets = [actions, toolbarRight].filter((el): el is HTMLElement => el !== null);
+
+    if (parentRect.width <= 0 || parentRect.height <= 0) {
+      this.applyOverlayFallback(parent, targets);
       return;
     }
 
-    const parentRect = parent.getBoundingClientRect();
+    const lefts = this.collectNativeActionLefts(parent, parentRect);
+    if (lefts.length === 0) {
+      // 原生按钮可能比 overlay 晚挂载：先使用 CSS 回退值，再有限次重试
+      this.applyOverlayFallback(parent, targets);
+      return;
+    }
+
     const overlayWidth = overlay.getBoundingClientRect().width;
-    const desired = computeOverlayRight(parentRect.right, actionsRect.left, 8);
+    const desired = computeOverlayRight(parentRect.right, lefts, 10);
     // 容器过窄时优先保证 overlay 不越出左边界
     const maxRight = Math.max(6, parentRect.width - overlayWidth - 6);
     overlay.style.right = `${Math.min(desired, maxRight)}px`;
     this.overlayAttempts = 0;
-    this.observeOverlayLayout(parent, actions);
+    this.observeOverlayLayout(parent, targets);
+  }
+
+  private applyOverlayFallback(parent: HTMLElement, targets: readonly HTMLElement[]): void {
+    const overlay = this.overlay;
+    if (overlay) overlay.style.right = "";
+    this.observeOverlayLayout(parent, targets);
+    this.scheduleOverlayRetry();
+  }
+
+  /** 收集右上角所有可见原生控件的 left；取最左的那个给 overlay 让位 */
+  private collectNativeActionLefts(parent: HTMLElement, parentRect: DOMRect): number[] {
+    const selectors = [
+      ".embed-actions",
+      ".embed-actions .embed-action",
+      ".pdf-toolbar-right .clickable-icon",
+    ];
+    const seen = new Set<HTMLElement>();
+    const lefts: number[] = [];
+    const rightHalf = parentRect.left + parentRect.width / 2;
+
+    for (const selector of selectors) {
+      for (const el of parent.querySelectorAll<HTMLElement>(selector)) {
+        if (seen.has(el)) continue;
+        seen.add(el);
+        if (!el.isConnected || el.closest(".pdfhl-embed-controls")) continue;
+
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        // 只看容器顶部的一排按钮，避免误选 PDF 页面内部的图标
+        if (rect.top < parentRect.top - 2 || rect.top > parentRect.top + 96) continue;
+        if (rect.left + rect.width / 2 < rightHalf) continue;
+        lefts.push(rect.left);
+      }
+    }
+
+    return lefts;
   }
 
   private scheduleOverlayRetry(): void {
@@ -292,19 +335,22 @@ export class ViewerBinding {
     }, 100);
   }
 
-  private observeOverlayLayout(parent: HTMLElement, actions: HTMLElement | null): void {
-    if (this.overlayParent === parent && this.overlayActions === actions && this.overlayObserver) {
+  private observeOverlayLayout(parent: HTMLElement, targets: readonly HTMLElement[]): void {
+    const sameTargets =
+      this.overlayTargets.length === targets.length &&
+      targets.every((target, index) => target === this.overlayTargets[index]);
+    if (this.overlayParent === parent && sameTargets && this.overlayObserver) {
       return;
     }
     this.overlayObserver?.disconnect();
     this.overlayObserver = null;
     this.overlayParent = parent;
-    this.overlayActions = actions;
+    this.overlayTargets = [...targets];
     if (typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(() => this.scheduleOverlayPosition());
     observer.observe(parent);
-    if (actions) observer.observe(actions);
+    for (const target of targets) observer.observe(target);
     this.overlayObserver = observer;
   }
 
@@ -320,7 +366,7 @@ export class ViewerBinding {
     this.overlayObserver?.disconnect();
     this.overlayObserver = null;
     this.overlayParent = null;
-    this.overlayActions = null;
+    this.overlayTargets = [];
     this.overlayAttempts = 0;
     this.overlay?.remove();
     this.overlay = null;

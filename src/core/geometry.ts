@@ -129,17 +129,28 @@ export function rectsIntersect(a: NormRect, b: NormRect): boolean {
 
 /**
  * 计算内嵌控件（overlay）的 CSS right 值：
- * 让它整体位于原生 .embed-actions 左侧，并保留 gap 间距。
+ * 让它整体位于原生控件左侧，并保留 gap 间距。
+ * actionsLeft 可以是单个 left，也可以是多个候选 left（取最左）。
  * 参数均为视口坐标/像素；无法测量时退回保守的 min。
  */
 export function computeOverlayRight(
   parentRight: number,
-  actionsLeft: number,
+  actionsLeft: number | readonly number[],
   gap = 8,
   min = 6,
 ): number {
-  if (!Number.isFinite(parentRight) || !Number.isFinite(actionsLeft) || !Number.isFinite(gap)) {
+  const left = typeof actionsLeft === "number" ? actionsLeft : earliestFiniteLeft(actionsLeft);
+  if (!Number.isFinite(parentRight) || left === null || !Number.isFinite(left) || !Number.isFinite(gap)) {
     return min;
   }
-  return Math.max(min, Math.ceil(parentRight - actionsLeft + gap));
+  return Math.max(min, Math.ceil(parentRight - left + gap));
+}
+
+function earliestFiniteLeft(values: readonly number[]): number | null {
+  let best: number | null = null;
+  for (const value of values) {
+    if (!Number.isFinite(value)) continue;
+    if (best === null || value < best) best = value;
+  }
+  return best;
 }

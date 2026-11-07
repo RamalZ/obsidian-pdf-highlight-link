@@ -189,7 +189,7 @@ Common symptoms and causes:
 
 - Text highlights are **bounding rectangles**, not per-line shapes; multi-line selections cover the gaps between lines
 - The panel's source-note link opens the note in a new tab (or switches to it if already open) and never replaces the current PDF tab
-- Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and automatically avoid the native action buttons; in a very narrow container they stay inside the PDF's left edge
+- Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and automatically avoid the native three-dot menu and edit-block button; in a very narrow container they stay inside the PDF's left edge
 - Highlights come from backlinks: delete or break a link and its highlight disappears; there is no in-PDF editor for editing or deleting highlights
 - Color and opacity are global settings, not encoded in the link (the same link shows in the default color in another vault)
 - Copying only writes to the clipboard; nothing is inserted into a note automatically
@@ -199,6 +199,16 @@ Common symptoms and causes:
 ## Changelog
 
 > Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.2
+
+**Changed**
+
+- Corrected the 0.2.0 note: the `.pdf-toolbar` of an ordinary embed is normally visible on screen; `display:none` applies only to print media. The overlay is kept and now avoids the whole top-right group of native controls.
+
+**Fixed**
+
+- Mode buttons for ordinary embedded PDFs now avoid both the `.pdf-toolbar-right` three-dot menu and the `.embed-actions` edit-block button. Positioning uses the leftmost visible top-right native control instead of only `.embed-actions`; the offset is recomputed when the container or toolbar resizes, with a 72px fallback when measurement fails.
 
 ### 0.2.1
 

@@ -363,6 +363,13 @@ test("computeOverlayRight 避开原生操作按钮", () => {
   assert.equal(computeOverlayRight(Number.NaN, 900, 8), 6);
 });
 
+test("computeOverlayRight 在多个原生控件间取最左", () => {
+  assert.equal(computeOverlayRight(1000, [930, 855], 8), 153);
+  assert.equal(computeOverlayRight(1000, [930, Number.NaN], 8), 78);
+  assert.equal(computeOverlayRight(1000, [], 8), 6);
+  assert.equal(computeOverlayRight(1000, [Number.NaN], 8), 6);
+});
+
 test("parseHighlightSubpath 支持 URL 编码的 subpath", () => {
   // useMarkdownLinks 开启时 Obsidian 生成的链接会把 = , & 编码
   const parsed = parseHighlightSubpath("#page%3D3%26selection%3D0.1%2C0.2%2C0.3%2C0.4");

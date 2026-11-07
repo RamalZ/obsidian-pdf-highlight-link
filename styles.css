@@ -125,11 +125,11 @@
   background: var(--background-modifier-hover);
 }
 
-/* 内嵌 PDF 的原生工具栏被 Obsidian 隐藏，改用自绘控件 */
+/* 内嵌 PDF 用自绘控件承载模式按钮，并避让原生右上角控件 */
 .pdfhl-embed-controls {
   position: absolute;
   top: 6px;
-  /* JS 会按原生 .embed-actions 位置覆盖；72px 是测量失败时的保守回退 */
+  /* JS 会按原生工具栏/编辑块按钮位置覆盖；72px 是测量失败时的保守回退 */
   right: 72px;
   z-index: 5;
   display: flex;
