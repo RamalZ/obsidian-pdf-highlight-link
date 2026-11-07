@@ -1,60 +1,62 @@
-# PDF 高亮链接（PDF Highlight Link）
+# PDF Highlight Link
 
-在 Obsidian 内置 PDF 阅读器里选中文字或框选区域，一键复制指向该位置的 Markdown 链接；把链接粘贴进笔记后，再打开这个 PDF 就会在对应位置渲染半透明高亮。
+**English** | [简体中文](README.zh-CN.md)
 
-- 不修改原 PDF 文件，高亮完全由反向链接（backlink）推导
-- 复用 Obsidian 自带的 PDF.js 阅读器，不引入任何第三方运行库
-- 仅桌面端（Obsidian 1.5+，已在 1.15.0 实测）
+Select text or drag a rectangle in Obsidian's built-in PDF viewer, copy a Markdown link to that spot, paste it into a note — and the next time you open that PDF, the highlight is drawn right there.
 
-## 功能
+- The PDF file is never modified; highlights are derived entirely from backlinks
+- Reuses Obsidian's bundled PDF.js viewer, no third-party runtime dependencies
+- Desktop only (Obsidian 1.5+; tested with 1.15.0)
 
-- **三态模式**：默认「无模式」，PDF 完全按原生方式浏览；点工具栏右侧的「文字模式」或「框选模式」进入对应模式，再点一次同一个按钮就退出回无模式（文字模式下按 `T` 也是同样的开关）
-- **文字模式**：选中文字 → 弹出浮动工具栏 → 「复制引用」或「复制链接」
-- **框选模式**：拖出矩形 → 松开鼠标 → 弹出同一个浮动工具栏
-- **复制引用**：跟 Obsidian 原生 PDF 引用一致——「引用行 + 空行 + 链接」，文字高亮把选中文字放进引用行，框选区域留一句占位文案由你自己补写：
+## Features
+
+- **Three-state mode**: the default is **off** — the PDF behaves exactly like the stock viewer. Click **Text mode** or **Rectangle mode** on the right side of the toolbar to enter a mode; click the same button (or press `T` in text mode) to go back to off.
+- **Text mode**: select text → a floating toolbar appears → **Copy reference** or **Copy link**
+- **Rectangle mode**: drag a rectangle → release → the same floating toolbar appears
+- **Copy reference** mirrors Obsidian's native PDF reference — a quote line, an empty line, then the link. For text selections the selected text becomes the quote line; for rectangles a placeholder sentence is emitted for you to fill in:
 
   ```markdown
-  > 选中的那段原文
+  > the piece of text you selected
 
-  [[论文.pdf#page=3&selection=0.12,0.34,0.56,0.35|论文.pdf, 第 3 页]]
+  [[paper.pdf#page=3&selection=0.12,0.34,0.56,0.35|paper.pdf, 第 3 页]]
   ```
 
   ```markdown
   > （此处由使用者根据区域内容自行填写）
 
-  [[论文.pdf#page=5&rect=0.1,0.2,0.3,0.4|论文.pdf, 第 5 页]]
+  [[paper.pdf#page=5&rect=0.1,0.2,0.3,0.4|paper.pdf, 第 5 页]]
   ```
 
-- **复制链接**：只复制纯链接（`[[文件.pdf#page=...|文件.pdf, X 页]]`），怎么使用由你自己决定
-- **高亮渲染**：打开 PDF 时读取 `metadataCache` 的反向链接，解析 `page` / `selection` / `rect`，在页面相应位置画高亮
-- **右侧面板**：按页分组列出当前 PDF 的全部高亮（色点 + 内容片段 + 来源笔记），支持搜索过滤；点条目跳转到对应页并闪烁，点条目下方的小链接直接打开来源笔记并定位到那一行
-- **设置**：默认模式（无模式/文字/框选）、高亮颜色（黄/绿/蓝/粉）、透明度
+- **Copy link** copies just the `[[file.pdf#page=...|file.pdf, 第 X 页]]` link
+- **Highlight rendering**: on open, backlinks are read from `metadataCache`, `page` / `selection` / `rect` are parsed, and overlays are drawn on the page
+- **Sidebar panel**: all highlights of the current PDF grouped by page (color dot, snippet, source note), with a search filter. Click an entry to jump to the page and flash it; click the small link underneath to open the source note at that line
+- **Settings**: default mode (off / text / rectangle), highlight color (yellow / green / blue / pink), opacity
 
-## 链接格式
+## Link format
 
-文字选区（坐标是**对角两点**）：
-
-```
-[[文件.pdf#page=3&selection=0.12,0.34,0.56,0.35|文件.pdf, 第 3 页]]
-```
-
-区域框选（坐标是**左上角 + 宽高**）：
+Text selection (the coordinates are two **opposite corners**):
 
 ```
-[[文件.pdf#page=5&rect=0.12,0.34,0.21,0.08|文件.pdf, 第 5 页]]
+[[file.pdf#page=3&selection=0.12,0.34,0.56,0.35|file.pdf, 第 3 页]]
 ```
 
-坐标一律是**相对页面内容盒的比例坐标（0–1，保留 4 位小数）**，不是像素值，所以缩放、平移、不同屏幕都不会漂移。多行选区取所有行的外接矩形；跨页选区归到起始页。
+Rectangle selection (the coordinates are **top-left corner + width/height**):
 
-「复制引用」和「复制链接」的别名都固定是 **`文件名.pdf, 第 X 页`**（与 Obsidian 原生 PDF 引用一致），所以选中文字本身不会占用别名；面板里的文字片段是从链接上方的引用行读回来的。
+```
+[[file.pdf#page=5&rect=0.12,0.34,0.21,0.08|file.pdf, 第 5 页]]
+```
 
-> **与 Obsidian 原生 PDF 链接的关系**：原生解析器把 `selection=` 当字符下标（`parseInt`），我们的浮点坐标会被解析成 `[0,0]-[0,0]`，从而在页首第一个文本块画一次会清空文字的退化高亮。插件会临时摘掉浮点 `selection=` 参数再交给原生处理（只保留页码跳转），并在 `textlayerrendered` 时兜底清理。
+Coordinates are always **ratios of the page content box (0–1, four decimals)**, never pixels, so they survive zooming, panning and different screens. Multi-line selections use the bounding box of all lines; selections spanning pages are anchored to the first page.
+
+The alias produced by both **Copy reference** and **Copy link** is always `file.pdf, 第 X 页` (matching Obsidian's native PDF reference), so the selected text does not occupy the alias — the panel reads text snippets back from the quote line above the link.
+
+> **Relationship to native Obsidian PDF links**: the native parser treats `selection=` as character indices (`parseInt`), so our floating-point coordinates would degrade to `[0,0]-[0,0]` and paint a text-erasing highlight on the first text block of the page. The plugin temporarily strips the floating-point `selection=` parameter before handing the subpath to the native viewer (page navigation is preserved) and clears any degenerate highlight on `textlayerrendered`.
 >
-> **与 obsidian-pdf-plus 的不兼容**：PDF++ 的 `selection=` 是字符下标、`rect=` 是 FitR 视图参数；本插件的坐标语义不同，两边的高亮互不识别，混用时请留意。
+> **Incompatible with obsidian-pdf-plus**: in PDF++, `selection=` holds character indices and `rect=` is a FitR view parameter. The coordinate semantics differ, so the two plugins do not recognize each other's highlights.
 
-## 安装
+## Installation
 
-### 方式一：部署脚本（推荐）
+### Option 1: deploy script (for development)
 
 ```bash
 npm install
@@ -62,131 +64,131 @@ npm run build
 npm run deploy
 ```
 
-部署脚本会从 `%APPDATA%\obsidian\obsidian.json` 读取 vault 列表：只有一个 vault 时直接用；多个时列出编号让你选择；也可以用 `--vault <路径>` 跳过选择：
+The script reads the vault list from `%APPDATA%\obsidian\obsidian.json`: with a single vault it is used directly, with several you pick one by number. Pass `--vault <path>` to skip the prompt:
 
 ```bash
-npm run deploy -- --vault "F:\我的笔记库"
+npm run deploy -- --vault "F:\MyVault"
 ```
 
-之后在 Obsidian 里「设置 → 第三方插件 → 重新载入（或重启）→ 启用 PDF 高亮链接」。
+Then in Obsidian: **Settings → Community plugins → Reload (or restart) → enable “PDF 高亮链接”**.
 
-### 方式二：手动复制
+### Option 2: copy the files manually
 
-把 `main.js`、`manifest.json`、`styles.css` 复制到：
+Copy `main.js`, `manifest.json` and `styles.css` into:
 
 ```
-<vault>\.obsidian\plugins\pdf-highlight-link\
+<vault>/.obsidian/plugins/pdf-highlight-link/
 ```
 
-### 方式三：从 GitHub Release 安装
+### Option 3: install from a GitHub Release
 
-1. 打开仓库的 Releases 页面，下载最新版本的 `main.js`、`manifest.json`、`styles.css`
-2. 在 `<vault>/.obsidian/plugins/` 下新建 `pdf-highlight-link` 文件夹，把三个文件放进去
-3. 重启 Obsidian，在「设置 → 第三方插件」里关闭限制模式并启用「PDF 高亮链接」
+1. Open the repository's Releases page and download `main.js`, `manifest.json` and `styles.css` from the latest release
+2. Create `.obsidian/plugins/pdf-highlight-link/` inside your vault and put the three files there
+3. Restart Obsidian, turn off Restricted mode under **Settings → Community plugins**, and enable “PDF 高亮链接”
 
-用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 也可以：在 BRAT 里「Add Beta plugin」填 `<GitHub 用户名>/obsidian-pdf-highlight-link`，之后随 Release 更新。
+You can also use [BRAT](https://github.com/TfTHacker/obsidian42-brat): *Add Beta plugin* → `RamalZ/obsidian-pdf-highlight-link`, and it will update with each release.
 
-## 分发给其他人（Windows / macOS）
+## Sharing with other people (Windows / macOS)
 
-插件运行时是纯 JavaScript，没有平台相关代码，Windows 上构建的产物可以直接给 Windows 或 macOS 用户使用（对方不需要装 Node，也不需要在那台机器上开发）。
+The plugin is plain JavaScript with no platform-specific code, so a build made on Windows works for Windows and macOS alike (the other person does not need Node, nor does the plugin need to be developed there).
 
 ```bash
-npm run build      # 生成 main.js
-npm run package    # 产出 dist/pdf-highlight-link/ 和 dist/pdf-highlight-link-<版本>.zip
+npm run build      # produces main.js
+npm run package    # produces dist/pdf-highlight-link/ and dist/pdf-highlight-link-<version>.zip
 ```
 
-产物里包含 `main.js`、`manifest.json`、`styles.css` 和一份中文 `INSTALL.txt`；zip 由脚本自动生成，直接把 zip（或文件夹）发给对方即可。
+The output contains `main.js`, `manifest.json`, `styles.css` and a Chinese `INSTALL.txt`; the zip is generated by the script, so you can just send the zip (or the folder).
 
-对方安装步骤（同样写在 `INSTALL.txt` 里）：
+Recipient steps (the same text is in `INSTALL.txt`):
 
-**Windows 和 macOS 通用**
+**Windows and macOS**
 
-1. Obsidian → 设置 → 第三方插件 → 点「打开插件文件夹 / Open plugins folder」，会直接打开当前 vault 的 `.obsidian/plugins`
-2. 把整个 `pdf-highlight-link` 文件夹复制进去（覆盖旧版同名文件夹即可）
-3. 完全退出 Obsidian 再重新打开 → 设置 → 第三方插件 → 关闭限制模式 → 在已安装列表里启用「PDF 高亮链接」
+1. Obsidian → Settings → Community plugins → **Open plugins folder**, which opens `.obsidian/plugins` for the current vault
+2. Copy the whole `pdf-highlight-link` folder in (overwrite an older one with the same name)
+3. Quit Obsidian completely and reopen it → Settings → Community plugins → turn off Restricted mode → enable “PDF 高亮链接”
 
-**Windows 补充**
+**Windows notes**
 
-- 手动路径为 `<vault>\.obsidian\plugins\pdf-highlight-link\`；资源管理器默认隐藏点开头的文件夹，需要「查看 → 显示 → 隐藏的项目」
-- 解压 zip 用右键「全部解压缩」，解压后应得到 `plugins\pdf-highlight-link\manifest.json`，不要出现 `pdf-highlight-link\pdf-highlight-link\` 或 `dist\...` 多套一层
-- 不知道 vault 在哪时，`%APPDATA%\obsidian\obsidian.json` 里记录了所有 vault 的路径
+- Manual path: `<vault>\.obsidian\plugins\pdf-highlight-link\`; Explorer hides dot-folders by default, so enable *View → Show → Hidden items*
+- Extract the zip with *Extract All*; the result must be `plugins\pdf-highlight-link\manifest.json`, never `pdf-highlight-link\pdf-highlight-link\` or `dist\...`
+- If you don't know where the vault is, `%APPDATA%\obsidian\obsidian.json` lists every vault path
 
-**macOS 补充**
+**macOS notes**
 
-- Finder 里按 `Cmd + Shift + .` 显示隐藏文件；iCloud 的 vault 通常在 `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/...`
+- Press `Cmd + Shift + .` in Finder to show hidden files; iCloud vaults usually live under `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/...`
 
-注意：
+Notes:
 
-- 仅 Obsidian **桌面版**可用（Windows / macOS / Linux），不支持手机和平板
-- 对方不需要 Node，插件是普通 JS 文件，Windows SmartScreen / macOS Gatekeeper 都不会拦截
-- 只想保留旧的颜色/透明度设置时，把旧插件目录里的 `data.json` 一起带上；打包产物默认不含 `data.json`
-- 列表里看不到插件，通常是文件夹多套了一层；启用后没反应，先重启 Obsidian 并确认版本 ≥ 1.5
+- Obsidian **desktop** only (Windows / macOS / Linux); phones and tablets are not supported
+- The recipient does not need Node; the plugin is ordinary JS and is not blocked by SmartScreen or Gatekeeper
+- To keep old color/opacity settings, carry over `data.json` from the previous plugin folder; the package intentionally excludes it
+- If the plugin does not appear in the list, the folder is usually nested one level too deep; if enabling does nothing, restart Obsidian and check that the version is ≥ 1.5
 
-## 使用
+## Usage
 
-1. 在 Obsidian 里打开一个 PDF（默认是「无模式」，你可以像平常一样浏览、选中、滚动）
-2. 想取链接时，点工具栏右侧的「文字模式」或「框选模式」；再点一次同一个按钮就回到无模式（默认状态可在设置里改）
-3. 文字模式下选中文字（或框选模式下拖出矩形），在浮动工具栏按需点「复制引用」或「复制链接」
-4. 把内容粘贴到任意笔记（复制引用会得到一个可折叠的 callout 块）
-5. 重新打开这个 PDF，高亮就会出现在对应位置；右侧面板会列出全部高亮，点条目跳页、点下方的小链接打开来源笔记并定位到那一行
+1. Open a PDF in Obsidian (the default mode is off, so you can browse, select and scroll as usual)
+2. To capture a link, click **Text mode** or **Rectangle mode** on the toolbar; click again to return to off (the default can be changed in settings)
+3. In text mode select text (in rectangle mode drag a rectangle), then click **Copy reference** or **Copy link** in the floating toolbar
+4. Paste into any note (Copy reference produces a collapsible callout-style block)
+5. Reopen the PDF and the highlight is drawn at the position; the sidebar panel lists every highlight — click an entry to jump, click the small link to open the source note at that line
 
-## 开发
+## Development
 
 ```bash
-npm install --cache .npm-cache   # 依赖装在工作区内的缓存目录，避免污染全局 npm 缓存
-npm run dev                      # esbuild 监听 + 生成 main.js
-npm run build                    # tsc --noEmit 类型检查 + esbuild 生产构建
-npm run test                     # 纯函数单元测试（链接解析/生成、坐标换算）
-npm run smoke                    # 用打桩的 obsidian 模块加载 main.js，检查打包产物
+npm install --cache .npm-cache   # keep the npm cache inside the workspace
+npm run dev                      # esbuild watch + emit main.js
+npm run build                    # tsc --noEmit + production esbuild
+npm run test                     # unit tests for the pure functions (link parsing/building, geometry)
+npm run smoke                    # load main.js against a stubbed obsidian module
 ```
 
-目录结构：
+Layout:
 
 ```
 src/
-  main.ts                     插件入口：注册视图/命令/设置，管理刷新节奏
-  types.ts                    共享类型 + 内置 PDF 组件的最小类型声明
+  main.ts                     plugin entry: views, commands, settings, refresh scheduling
+  types.ts                    shared types + minimal typings for Obsidian's internal PDF component
   core/
-    link.ts                   链接解析/生成、别名清洗、剪贴板（纯函数）
-    geometry.ts               归一化矩形、页面内容盒换算（纯函数）
-    backlink-index.ts         从 metadataCache 反向链接构建高亮索引
+    link.ts                   link parsing/building, alias sanitizing, clipboard (pure)
+    geometry.ts               normalized rectangles, page content-box math (pure)
+    backlink-index.ts         build the highlight index from metadataCache backlinks
   viewer/
-    pdf-viewer-api.ts         访问内置 PDF 组件、原生退化高亮抑制
-    viewer-manager.ts         跟踪所有 PDF 叶子，维护绑定
-    viewer-binding.ts         单个 PDF 叶子的编排：模式、捕获、渲染、复制
-    mode-buttons.ts           工具栏模式按钮
-    float-toolbar.ts          选区浮动工具栏
-    selection-capture.ts      文字选区 → 归一化矩形
-    rect-capture.ts           拖拽框选 → 归一化矩形
-    highlight-renderer.ts     页面内百分比覆盖层
-  panel/highlight-panel-view.ts  右侧高亮面板
-  settings/settings-tab.ts       设置页
+    pdf-viewer-api.ts         access the internal PDF component, suppress the degenerate native highlight
+    viewer-manager.ts         track PDF leaves and maintain bindings
+    viewer-binding.ts         per-leaf orchestration: mode, capture, rendering, copying
+    mode-buttons.ts           toolbar mode buttons
+    float-toolbar.ts          floating toolbar for selections
+    selection-capture.ts      text selection → normalized rectangle
+    rect-capture.ts           drag selection → normalized rectangle
+    highlight-renderer.ts     percentage overlay inside each page
+  panel/highlight-panel-view.ts  sidebar highlight panel
+  settings/settings-tab.ts       settings tab
 test/
-  run.ts                      单元测试
-  smoke.cjs / obsidian-stub.cjs  打包产物冒烟测试
-scripts/deploy.mjs            部署脚本
+  run.ts                      unit tests
+  smoke.cjs / obsidian-stub.cjs  bundle smoke test
+scripts/deploy.mjs            deploy script
 ```
 
-## 排查
+## Troubleshooting
 
-命令面板执行「PDF 高亮链接：诊断 PDF 视图（输出到控制台）」，会在开发者控制台（`Ctrl+Shift+I`）打印每个 PDF 叶子的内部组件结构、事件总线来源、页面元素数量与绑定状态，用于确认内部 API 是否随 Obsidian 升级变化。
+Run **“PDF Highlight Link: Diagnose PDF view (log to console)”** from the command palette. It prints each PDF leaf's internal component structure, the event-bus source, the number of page elements and the binding state to the developer console (`Ctrl+Shift+I`), which tells you whether the internal APIs have changed with an Obsidian upgrade.
 
-常见现象与原因：
+Common symptoms and causes:
 
-- **高亮不自动重绘（缩略图/懒加载后）**：没有拿到事件总线。Obsidian 1.15 的 PDF 组件把总线挂在 `pdfViewer.eventBus` 上，而不是组件自身的 `eventBus`；插件已优先用前者，并回退到组件的 `on/off` 转发方法。仍失败时可手动执行「刷新高亮」。
-- **关闭 PDF 标签页时报 `Cannot read properties of null (reading 'dom')`**：视图卸载时 PDF 组件会把 `pdfViewer` 置为 `null`。插件现在所有内部访问都先做 `isViewerAlive` 判活，清理流程逐步 try/catch，销毁已卸载视图时只降级不抛错。
-- **刷新/重扫后旧绑定报错**：重新扫描时旧绑定可能已随视图卸载，销毁逻辑容忍空对象；同一叶子切换 PDF 文件会自动重建索引。
+- **Highlights stop repainting after thumbnail scrolling / lazy loading**: the event bus was not found. In Obsidian 1.15 the PDF component exposes it as `pdfViewer.eventBus`, not on the component itself; the plugin prefers that and falls back to the component's `on/off` forwarders. If it still fails, run **Refresh highlights** manually.
+- **`Cannot read properties of null (reading 'dom')` when closing a PDF tab**: on unload the PDF component nulls `pdfViewer`. Every internal access now goes through `isViewerAlive`, cleanup steps are wrapped in try/catch, and destroying an unloaded view degrades instead of throwing.
+- **Errors from stale bindings after a rescan**: a rebind may find a view that has already been unloaded; the destroy path tolerates empty objects, and switching files within the same leaf rebuilds the index automatically.
 
-## 已知限制
+## Known limitations
 
-- 文字高亮是**外接矩形**，不是逐行精确形状；多行选中会覆盖行间空白
-- 面板的「来源笔记」链接会在新标签页打开笔记（已打开则直接切换过去），不会替换当前的 PDF 标签页
-- 只处理独立的 PDF 叶子（`.pdf` 视图），不处理笔记内嵌的 `![[x.pdf]]` 嵌入视图
-- 高亮由反向链接推导：链接被删或改坏，高亮随之消失；不提供在 PDF 里直接编辑/删除高亮的界面
-- 颜色与透明度是全局设置，不写进链接（同一链接在别的 vault 用默认颜色显示）
-- 复制只写入剪贴板，不自动插入笔记
-- 依赖 Obsidian 内部 PDF 组件（`pdf` 视图的私有字段），Obsidian 大版本升级后可能需要适配；所有访问都做了特征探测，缺失时降级而不是报错
-- 部署脚本的交互选择需要真实终端（TTY），在 CI/管道里请用 `--vault`
+- Text highlights are **bounding rectangles**, not per-line shapes; multi-line selections cover the gaps between lines
+- The panel's source-note link opens the note in a new tab (or switches to it if already open) and never replaces the current PDF tab
+- Only standalone PDF leaves (`pdf` view) are handled; embedded `![[x.pdf]]` previews are not
+- Highlights come from backlinks: delete or break a link and its highlight disappears; there is no in-PDF editor for editing or deleting highlights
+- Color and opacity are global settings, not encoded in the link (the same link shows in the default color in another vault)
+- Copying only writes to the clipboard; nothing is inserted into a note automatically
+- The plugin depends on Obsidian's internal PDF component (private fields of the `pdf` view) and may need adaptation after a major upgrade; every access is feature-detected and degrades instead of throwing
+- The deploy script's interactive picker needs a real TTY; use `--vault` in CI or pipelines
 
 ## License
 
