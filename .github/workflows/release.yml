@@ -1,0 +1,53 @@
+name: Release
+
+# 打 tag（例如 0.1.0 或 v0.1.0）时自动构建并发布 Release。
+# Release 附件必须是 main.js / manifest.json / styles.css 三个平级文件，
+# Obsidian 手动安装和 BRAT 都按这三个文件识别插件。
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --cache .npm-cache
+
+      - name: 类型检查与构建
+        run: npm run build
+
+      - name: 校验 tag 与 manifest 版本一致
+        run: |
+          node -e "
+            const manifest = require('./manifest.json');
+            const tag = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+            if (manifest.version !== tag) {
+              console.error('manifest.json 版本 ' + manifest.version + ' 与 tag ' + tag + ' 不一致');
+              process.exit(1);
+            }
+            console.log('版本一致：' + tag);
+          "
+
+      - name: 发布 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            main.js
+            manifest.json
+            styles.css
+          generate_release_notes: true
