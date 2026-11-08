@@ -59,8 +59,11 @@ export async function buildHighlightIndex(app: App, pdfFile: TFile): Promise<Hig
       const parsed = parseHighlightSubpath(subpath);
       if (!parsed) continue;
 
-      const { page, kind, rect } = parsed;
-      const id = `${page}:${kind}:${rect.x},${rect.y},${rect.w},${rect.h}`;
+      const { page, kind, rect, rects } = parsed;
+      // 单区域沿用旧 id（面板/闪烁状态不变）；多区域用全部坐标去重
+      const id = rects.length > 1
+        ? `${page}:${kind}:${rects.map((item) => `${item.x},${item.y},${item.w},${item.h}`).join(";")}`
+        : `${page}:${kind}:${rect.x},${rect.y},${rect.w},${rect.h}`;
       if (seen.has(id)) continue;
       seen.add(id);
 
@@ -70,6 +73,7 @@ export async function buildHighlightIndex(app: App, pdfFile: TFile): Promise<Hig
         page,
         kind,
         rect,
+        rects,
         text: cache.displayText ?? "",
         sourcePath,
         line: cache.position?.start?.line ?? 0,

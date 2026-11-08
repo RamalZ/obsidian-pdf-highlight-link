@@ -19,8 +19,8 @@ export class HighlightRenderer {
   private opacity = 0.35;
   /** 当前条目按页分组（ensureLayers 重试时需要） */
   private entriesByPage = new Map<number, HighlightEntry[]>();
-  /** 条目 id → DOM 元素（用于闪烁定位） */
-  private itemElements = new Map<string, HTMLElement>();
+  /** 条目 id → DOM 元素列表（跨栏条目会渲染成多块） */
+  private itemElements = new Map<string, HTMLElement[]>();
   private flashTimers = new Map<string, number>();
 
   constructor(bv: BvLike) {
@@ -63,16 +63,18 @@ export class HighlightRenderer {
 
   /** 闪烁指定条目；该页还没建层时返回 false（调用方等 pagerendered 再试） */
   flash(entryId: string): boolean {
-    const element = this.itemElements.get(entryId) ?? this.findItemByQuery(entryId);
-    if (!element) return false;
-    element.classList.remove("is-flash");
-    // 强制重排，保证连续两次闪烁都能看到动画
-    void element.offsetWidth;
-    element.classList.add("is-flash");
+    const elements = this.itemElements.get(entryId) ?? this.findItemsByQuery(entryId);
+    if (elements.length === 0) return false;
+    for (const element of elements) {
+      element.classList.remove("is-flash");
+      // 强制重排，保证连续两次闪烁都能看到动画
+      void element.offsetWidth;
+      element.classList.add("is-flash");
+    }
     const existing = this.flashTimers.get(entryId);
     if (existing !== undefined) window.clearTimeout(existing);
     const timer = window.setTimeout(() => {
-      element.classList.remove("is-flash");
+      for (const element of elements) element.classList.remove("is-flash");
       this.flashTimers.delete(entryId);
     }, 1200);
     this.flashTimers.set(entryId, timer);
@@ -106,33 +108,42 @@ export class HighlightRenderer {
   private buildLayer(pageEl: HTMLElement, entries: readonly HighlightEntry[]): void {
     const layer = pageEl.createDiv({ cls: LAYER_CLASS });
     for (const entry of entries) {
-      const item = layer.createDiv({ cls: ITEM_CLASS });
-      const style = toPercentStyle(entry.rect);
-      item.style.left = style.left;
-      item.style.top = style.top;
-      item.style.width = style.width;
-      item.style.height = style.height;
-      item.dataset.entryId = entry.id;
-      item.dataset.kind = entry.kind;
-      item.title = getStrings().panelPageTitle(entry.page, entrySnippet(entry.text, entry.kind));
-      this.itemElements.set(entry.id, item);
+      const rects = entry.rects.length > 0 ? entry.rects : [entry.rect];
+      const items: HTMLElement[] = [];
+      for (const rect of rects) {
+        const item = layer.createDiv({ cls: ITEM_CLASS });
+        const style = toPercentStyle(rect);
+        item.style.left = style.left;
+        item.style.top = style.top;
+        item.style.width = style.width;
+        item.style.height = style.height;
+        item.dataset.entryId = entry.id;
+        item.dataset.kind = entry.kind;
+        item.title = getStrings().panelPageTitle(entry.page, entrySnippet(entry.text, entry.kind));
+        items.push(item);
+      }
+      this.itemElements.set(entry.id, items);
     }
   }
 
   private applyStyle(): void {
     const background = this.color;
     const opacity = String(this.opacity);
-    for (const element of this.itemElements.values()) {
-      element.style.backgroundColor = background;
-      element.style.opacity = opacity;
+    for (const elements of this.itemElements.values()) {
+      for (const element of elements) {
+        element.style.backgroundColor = background;
+        element.style.opacity = opacity;
+      }
     }
   }
 
-  private findItemByQuery(entryId: string): HTMLElement | null {
+  private findItemsByQuery(entryId: string): HTMLElement[] {
+    const found: HTMLElement[] = [];
     for (const pageEl of getPageElements(this.bv)) {
-      const found = pageEl.querySelector<HTMLElement>(`.${ITEM_CLASS}[data-entry-id="${entryId}"]`);
-      if (found) return found;
+      pageEl
+        .querySelectorAll<HTMLElement>(`.${ITEM_CLASS}[data-entry-id="${entryId}"]`)
+        .forEach((element) => found.push(element));
     }
-    return null;
+    return found;
   }
 }

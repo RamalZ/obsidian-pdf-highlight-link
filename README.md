@@ -29,7 +29,7 @@ Select text or drag a rectangle in Obsidian's built-in PDF viewer — in a PDF t
   ```
 
 - **Copy link** copies just the `[[file.pdf#page=...|file.pdf, 第 X 页]]` link
-- **Highlight rendering**: on open, backlinks are read from `metadataCache`, `page` / `selection` / `rect` are parsed, and overlays are drawn on the page
+- **Highlight rendering**: on open, backlinks are read from `metadataCache`, `page` / `selection` / `rect` / `rects` are parsed, and overlays are drawn on the page; cross-column text selections are split per column
 - **Sidebar panel**: all highlights of the current PDF grouped by page (color dot, snippet, source note), with a search filter. Click an entry to jump to the page and flash it; click the small link underneath to open the source note at that line
 - **Settings**: default mode (off / text / rectangle), highlight color (yellow / green / blue / pink), opacity
 - **Localized UI**: commands, ribbon, toolbar buttons, floating toolbar, sidebar panel, settings, and notices follow Obsidian's interface language (Simplified Chinese / Traditional Chinese / English); unsupported languages fall back to English
@@ -42,13 +42,19 @@ Text selection (the coordinates are two **opposite corners**):
 [[file.pdf#page=3&selection=0.12,0.34,0.56,0.35|file.pdf, page 3]]
 ```
 
+Cross-column text selection (multiple regions separated by semicolons; each region is **top-left corner + width/height**):
+
+```
+[[file.pdf#page=7&rects=0.1,0.2,0.35,0.18;0.55,0.2,0.35,0.18|file.pdf, page 7]]
+```
+
 Rectangle selection (the coordinates are **top-left corner + width/height**):
 
 ```
 [[file.pdf#page=5&rect=0.12,0.34,0.21,0.08|file.pdf, page 5]]
 ```
 
-Coordinates are always **ratios of the page content box (0–1, four decimals)**, never pixels, so they survive zooming, panning and different screens. Multi-line selections use the bounding box of all lines; selections spanning pages are anchored to the first page.
+Coordinates are always **ratios of the page content box (0–1, four decimals)**, never pixels, so they survive zooming, panning and different screens. Text selections are first grouped into text rows, then split into columns at horizontal gaps: single-column lines merge into one region (still written as the old `selection=`), while two- or three-column selections use `rects=` per column so the highlight never spans the gutter; full-width headings stay separate. Selections spanning pages are anchored to the first page.
 
 The alias produced by both **Copy reference** and **Copy link** follows the current interface language: Simplified Chinese `文件.pdf, 第 X 页`, Traditional Chinese `檔案.pdf, 第 X 頁`, or English `file.pdf, page X` (matching Obsidian's native PDF reference). The selected text therefore does not occupy the alias — the panel reads text snippets back from the quote line above the link. Links in all three formats are recognized.
 
@@ -187,7 +193,7 @@ Common symptoms and causes:
 
 ## Known limitations
 
-- Text highlights are **bounding rectangles**, not per-line shapes; multi-line selections cover the gaps between lines
+- Text highlights are split into per-row/per-column rectangles, not exact glyph outlines; gaps between lines and skewed text may still be covered
 - The panel's source-note link opens the note in a new tab (or switches to it if already open) and never replaces the current PDF tab
 - Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and automatically avoid the native three-dot menu and edit-block button; in a very narrow container they stay inside the PDF's left edge
 - Highlights come from backlinks: delete or break a link and its highlight disappears; there is no in-PDF editor for editing or deleting highlights
@@ -199,6 +205,14 @@ Common symptoms and causes:
 ## Changelog
 
 > Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.4
+
+**Fixed**
+
+- Fixed cross-column text selections highlighting nearly the whole page: capture now groups client rects into text rows, splits each row into columns at horizontal gaps, and merges adjacent rows within the same column; full-width headings stay separate instead of collapsing everything into one bounding box that spans the gutter.
+- Multi-region text links now use `rects=x,y,w,h;x,y,w,h` (still page-ratio coordinates). Single-region selections keep the old `selection=` format, and old links remain fully compatible. Parsing priority is `rects` > `rect` > `selection`.
+- Highlight rendering, flash targeting, and panel deduplication now support multiple regions per link, so a cross-column selection no longer paints the whole page.
 
 ### 0.2.3
 

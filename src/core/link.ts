@@ -1,5 +1,6 @@
 import type { App, TFile } from "obsidian";
 import type { HighlightMode, NormRect, ParsedHighlight } from "../types.ts";
+import { unionRects } from "./geometry.ts";
 import { getStrings } from "../i18n/strings.ts";
 
 /** 坐标保留的小数位数（4 位 ≈ 页面千分之一像素级，足够精确且链接短） */
@@ -78,6 +79,24 @@ function splitFourNumbers(raw: string): [number, number, number, number] | null 
   return [values[0], values[1], values[2], values[3]];
 }
 
+/** 解析 rects=x,y,w,h;x,y,w,h；任一段非法就整体判为非法（调用方回退旧参数） */
+function parseRectGroups(raw: string): NormRect[] | null {
+  const groups = raw
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (groups.length === 0) return null;
+  const rects: NormRect[] = [];
+  for (const group of groups) {
+    const values = splitFourNumbers(group);
+    if (!values) return null;
+    const rect = makeRectFromSize(values[0], values[1], values[2], values[3]);
+    if (!rect) return null;
+    rects.push(rect);
+  }
+  return rects;
+}
+
 /**
  * Markdown 链接里的 subpath 可能被 URL 编码（`#page%3D3%26selection%3D…`），
  * 解析前先解码；编码不合法时原样返回，交给后续校验。
@@ -93,7 +112,7 @@ export function decodeSubpath(subpath: string): string {
 
 /**
  * 解析链接 subpath（形如 "#page=3&selection=0.1,0.2,0.3,0.4"）。
- * 规则：page 必须是正整数；同时存在 rect 与 selection 时以 rect 为准（区域型语义更明确）。
+ * 规则：page 必须是正整数；优先级 rects > rect > selection（rects 是跨栏文字选区的多区域格式）。
  * 解析失败返回 null，调用方应静默跳过（不打扰用户）。
  */
 export function parseHighlightSubpath(subpath: string | null | undefined): ParsedHighlight | null {
@@ -114,12 +133,23 @@ export function parseHighlightSubpath(subpath: string | null | undefined): Parse
   const page = Number.parseInt(pageText, 10);
   if (!Number.isFinite(page) || page < 1) return null;
 
+  // 多区域文字选区：rects=x,y,w,h;x,y,w,h（本次新增，优先于单矩形）
+  const rectsText = params.get("rects");
+  if (rectsText !== null) {
+    const rects = parseRectGroups(rectsText);
+    if (rects && rects.length > 0) {
+      const rect = unionRects(rects);
+      if (rect) return { page, kind: "text", rect, rects };
+    }
+    // rects 非法时继续尝试旧的 rect/selection，兼容被手工改坏的链接
+  }
+
   const rectText = params.get("rect");
   if (rectText !== null) {
     const values = splitFourNumbers(rectText);
     if (!values) return null;
     const rect = makeRectFromSize(values[0], values[1], values[2], values[3]);
-    return rect ? { page, kind: "rect", rect } : null;
+    return rect ? { page, kind: "rect", rect, rects: [rect] } : null;
   }
 
   const selectionText = params.get("selection");
@@ -127,7 +157,7 @@ export function parseHighlightSubpath(subpath: string | null | undefined): Parse
     const values = splitFourNumbers(selectionText);
     if (!values) return null;
     const rect = normalizeRect(values[0], values[1], values[2], values[3]);
-    return rect ? { page, kind: "text", rect } : null;
+    return rect ? { page, kind: "text", rect, rects: [rect] } : null;
   }
 
   // 只有 page：原生页码跳转链接，不是高亮
@@ -146,8 +176,31 @@ export function buildRectSubpath(page: number, rect: NormRect): string {
   return `#page=${page}&rect=${formatCoord(r.x)},${formatCoord(r.y)},${formatCoord(r.w)},${formatCoord(r.h)}`;
 }
 
-/** 按类型生成 subpath */
-export function buildSubpath(page: number, kind: HighlightMode, rect: NormRect): string {
+/**
+ * 多区域文字型 subpath：rects=x,y,w,h;x,y,w,h
+ * 用于跨栏选区，避免用外接矩形把栏间空白一起高亮。单区域仍写旧的 selection 格式。
+ */
+export function buildTextRectsSubpath(page: number, rects: readonly NormRect[]): string {
+  const normalized = rects
+    .filter((rect) => [rect.x, rect.y, rect.w, rect.h].every((value) => Number.isFinite(value)))
+    .map((rect) => clampRectForLink(rect))
+    .filter((rect) => rect.w >= MIN_RECT_SIZE && rect.h >= MIN_RECT_SIZE);
+  if (normalized.length === 0) return `#page=${page}`;
+  if (normalized.length === 1) return buildTextSubpath(page, normalized[0]);
+  const value = normalized
+    .map((rect) => `${formatCoord(rect.x)},${formatCoord(rect.y)},${formatCoord(rect.w)},${formatCoord(rect.h)}`)
+    .join(";");
+  return `#page=${page}&rects=${value}`;
+}
+
+/** 按类型生成 subpath；文字型传入多个区域时使用 rects 格式 */
+export function buildSubpath(
+  page: number,
+  kind: HighlightMode,
+  rect: NormRect,
+  rects?: readonly NormRect[] | null,
+): string {
+  if (kind === "text" && rects && rects.length > 1) return buildTextRectsSubpath(page, rects);
   return kind === "rect" ? buildRectSubpath(page, rect) : buildTextSubpath(page, rect);
 }
 
@@ -203,8 +256,9 @@ export function createPdfLink(
   kind: HighlightMode,
   rect: NormRect,
   alias: string | null | undefined,
+  rects?: readonly NormRect[] | null,
 ): string {
-  const subpath = buildSubpath(page, kind, rect);
+  const subpath = buildSubpath(page, kind, rect, rects);
   const safeAlias = resolveAlias(alias, kind);
   try {
     return app.fileManager.generateMarkdownLink(pdfFile, sourcePath, subpath, safeAlias);

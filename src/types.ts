@@ -26,7 +26,10 @@ export interface NormRect {
 export interface ParsedHighlight {
   page: number;
   kind: HighlightMode;
+  /** 所有区域的并集（兼容只认识单个矩形的旧代码/排序） */
   rect: NormRect;
+  /** 实际高亮区域：单区域时长度为 1，跨栏文字选区可能有多块 */
+  rects: NormRect[];
 }
 
 /** 面板与渲染层共用的一条高亮记录 */
@@ -36,7 +39,10 @@ export interface HighlightEntry {
   file: TFile;
   page: number;
   kind: HighlightMode;
+  /** 所有区域的并集（兼容只认识单个矩形的旧代码/排序） */
   rect: NormRect;
+  /** 实际高亮区域：单区域时长度为 1，跨栏文字选区可能有多块 */
+  rects: NormRect[];
   /** 链接别名（内容片段） */
   text: string;
   /** 来源笔记路径 */

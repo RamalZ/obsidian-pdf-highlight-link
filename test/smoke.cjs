@@ -29,6 +29,7 @@ assert.ok(bundleSource.includes("pdfhl-layer"), "main.js 里没有渲染层类�
 assert.ok(bundleSource.includes("pdfhl-embed-controls"), "main.js 里没有内嵌 PDF 控件，打包内容疑似不完整");
 assert.ok(bundleSource.includes("embed-actions"), "main.js 里没有原生操作按钮定位逻辑，打包内容疑似不完整");
 assert.ok(bundleSource.includes("pdf-toolbar-right"), "main.js 里没有原生 PDF 工具栏定位逻辑，打包内容疑似不完整");
+assert.ok(bundleSource.includes("rects="), "main.js 里没有多区域高亮参数，打包内容疑似不完整");
 assert.ok(bundleSource.includes("generateMarkdownLink"), "main.js 里没有链接生成调用，打包内容疑似不完整");
 
 const exported = require(mainPath);

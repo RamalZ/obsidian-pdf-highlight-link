@@ -9,6 +9,7 @@ import {
   buildRectSubpath,
   buildReferenceBlock,
   buildSubpath,
+  buildTextRectsSubpath,
   buildTextSubpath,
   entrySnippet,
   extractQuoteLine,
@@ -21,6 +22,7 @@ import {
   sanitizeAlias,
 } from "../src/core/link.ts";
 import {
+  buildSelectionRegions,
   clampRect,
   computeOverlayRight,
   isUsableRect,
@@ -174,6 +176,61 @@ test("buildSubpath 生成的坐标永远在 0–1 之间", () => {
   assert.ok(parsed);
   assert.ok(parsed.rect.x + parsed.rect.w <= 1.0001);
   assert.ok(parsed.rect.y + parsed.rect.h <= 1.0001);
+});
+
+test("buildTextRectsSubpath → parseHighlightSubpath 往返一致", () => {
+  const rects = [
+    { x: 0.1, y: 0.1, w: 0.35, h: 0.2 },
+    { x: 0.55, y: 0.1, w: 0.35, h: 0.2 },
+  ];
+  const subpath = buildTextRectsSubpath(4, rects);
+  assert.equal(subpath, "#page=4&rects=0.1,0.1,0.35,0.2;0.55,0.1,0.35,0.2");
+  const parsed = parseHighlightSubpath(subpath);
+  assert.ok(parsed);
+  assert.equal(parsed.page, 4);
+  assert.equal(parsed.kind, "text");
+  assert.equal(parsed.rects.length, 2);
+  close(parsed.rect.x, 0.1, "union.x");
+  close(parsed.rect.w, 0.8, "union.w");
+  close(parsed.rects[1].x, 0.55, "rects[1].x");
+});
+
+test("parseHighlightSubpath 优先级 rects > rect > selection", () => {
+  const both = parseHighlightSubpath(
+    "#page=2&rects=0.1,0.1,0.3,0.2;0.6,0.1,0.3,0.2&rect=0.2,0.2,0.1,0.1&selection=0,0,0.5,0.5",
+  );
+  assert.ok(both);
+  assert.equal(both.kind, "text");
+  assert.equal(both.rects.length, 2);
+  close(both.rects[0].x, 0.1, "rects[0].x");
+});
+
+test("parseHighlightSubpath 非法 rects 回退旧 selection", () => {
+  const parsed = parseHighlightSubpath("#page=2&rects=a,b,c,d&selection=0.1,0.2,0.3,0.4");
+  assert.ok(parsed);
+  assert.equal(parsed.kind, "text");
+  assert.equal(parsed.rects.length, 1);
+  close(parsed.rect.x, 0.1, "x");
+});
+
+test("旧链接解析后 rects 只有一个（兼容单区域）", () => {
+  const parsed = parseHighlightSubpath("#page=3&selection=0.1,0.2,0.3,0.4");
+  assert.ok(parsed);
+  assert.equal(parsed.rects.length, 1);
+  close(parsed.rects[0].w, 0.2, "w");
+});
+
+test("buildSubpath 单区域仍用 selection，多区域用 rects", () => {
+  const rect = { x: 0.1, y: 0.1, w: 0.8, h: 0.3 };
+  const single = buildSubpath(1, "text", rect, [rect]);
+  assert.ok(single.includes("selection="));
+  assert.equal(single.includes("rects="), false);
+  const multi = buildSubpath(1, "text", rect, [
+    { x: 0.1, y: 0.1, w: 0.35, h: 0.3 },
+    { x: 0.55, y: 0.1, w: 0.35, h: 0.3 },
+  ]);
+  assert.ok(multi.includes("rects="));
+  assert.equal(multi.includes("selection="), false);
 });
 
 test("formatCoord / roundCoord 固定精度", () => {
@@ -368,6 +425,78 @@ test("computeOverlayRight 在多个原生控件间取最左", () => {
   assert.equal(computeOverlayRight(1000, [930, Number.NaN], 8), 78);
   assert.equal(computeOverlayRight(1000, [], 8), 6);
   assert.equal(computeOverlayRight(1000, [Number.NaN], 8), 6);
+});
+
+test("buildSelectionRegions 单栏多行合并为一块", () => {
+  const regions = buildSelectionRegions([
+    { x: 0.1, y: 0.1, w: 0.4, h: 0.05 },
+    { x: 0.1, y: 0.16, w: 0.4, h: 0.05 },
+    { x: 0.1, y: 0.22, w: 0.38, h: 0.05 },
+  ]);
+  assert.equal(regions.length, 1);
+  close(regions[0].x, 0.1, "x");
+  close(regions[0].y, 0.1, "y");
+  close(regions[0].w, 0.4, "w");
+  close(regions[0].h, 0.17, "h");
+});
+
+test("buildSelectionRegions 双栏拆成两块，不横跨栏间空白", () => {
+  const rects = [
+    { x: 0.1, y: 0.1, w: 0.38, h: 0.05 },
+    { x: 0.55, y: 0.1, w: 0.38, h: 0.05 },
+    { x: 0.1, y: 0.16, w: 0.38, h: 0.05 },
+    { x: 0.55, y: 0.16, w: 0.38, h: 0.05 },
+    { x: 0.1, y: 0.22, w: 0.38, h: 0.05 },
+    { x: 0.55, y: 0.22, w: 0.38, h: 0.05 },
+  ];
+  const regions = buildSelectionRegions(rects);
+  assert.equal(regions.length, 2);
+  for (const region of regions) {
+    assert.ok(region.w < 0.5, `栏宽 ${region.w} 不应横跨两栏`);
+  }
+});
+
+test("buildSelectionRegions 三栏拆成三块", () => {
+  const rects = [
+    { x: 0.08, y: 0.1, w: 0.24, h: 0.05 },
+    { x: 0.38, y: 0.1, w: 0.24, h: 0.05 },
+    { x: 0.68, y: 0.1, w: 0.24, h: 0.05 },
+    { x: 0.08, y: 0.16, w: 0.24, h: 0.05 },
+    { x: 0.38, y: 0.16, w: 0.24, h: 0.05 },
+    { x: 0.68, y: 0.16, w: 0.24, h: 0.05 },
+  ];
+  assert.equal(buildSelectionRegions(rects).length, 3);
+});
+
+test("buildSelectionRegions 通栏标题与双栏正文分开", () => {
+  const regions = buildSelectionRegions([
+    { x: 0.1, y: 0.1, w: 0.8, h: 0.05 },
+    { x: 0.1, y: 0.16, w: 0.38, h: 0.05 },
+    { x: 0.55, y: 0.16, w: 0.38, h: 0.05 },
+    { x: 0.1, y: 0.22, w: 0.38, h: 0.05 },
+    { x: 0.55, y: 0.22, w: 0.38, h: 0.05 },
+  ]);
+  assert.equal(regions.length, 3);
+  const columns = regions.filter((region) => region.y > 0.14);
+  assert.equal(columns.length, 2);
+  assert.ok(columns.every((region) => region.w < 0.5), "正文不应被合并成整页宽");
+});
+
+test("buildSelectionRegions 同一行的大间隙拆开", () => {
+  const regions = buildSelectionRegions([
+    { x: 0.1, y: 0.1, w: 0.2, h: 0.08 },
+    { x: 0.4, y: 0.1, w: 0.2, h: 0.08 },
+  ]);
+  assert.equal(regions.length, 2);
+});
+
+test("buildSelectionRegions 空数组与无效矩形返回空", () => {
+  assert.deepEqual(buildSelectionRegions([]), []);
+  assert.deepEqual(
+    buildSelectionRegions([{ x: Number.NaN, y: 0, w: 0.5, h: 0.5 }]),
+    [],
+  );
+  assert.deepEqual(buildSelectionRegions([{ x: 0, y: 0, w: 0.001, h: 0.5 }]), []);
 });
 
 test("parseHighlightSubpath 支持 URL 编码的 subpath", () => {

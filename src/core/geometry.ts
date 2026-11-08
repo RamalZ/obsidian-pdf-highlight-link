@@ -70,6 +70,188 @@ export function isUsableRect(rect: NormRect, min = MIN_GEOMETRY_SIZE): boolean {
   return rect.w >= min && rect.h >= min;
 }
 
+/** 文字选区按列拆分时的可调参数（均为页面归一化比例） */
+export interface SelectionRegionOptions {
+  /** 同一行内，大于该水平间隙就视为相邻两栏；默认 0.02 */
+  columnGap?: number;
+  /** 相邻两行之间允许的最大垂直间隙；默认 0.012 */
+  lineGap?: number;
+  /** 纵向合并所需的最小水平重叠率（交集 / 较宽矩形）；默认 0.5 */
+  minOverlapRatio?: number;
+  /** 纵向合并允许的最大宽度比；默认 1.7 */
+  maxWidthRatio?: number;
+}
+
+interface RegionTrack {
+  bounds: NormRect;
+  last: NormRect;
+}
+
+interface SelectionRow {
+  rects: NormRect[];
+  segments: NormRect[];
+}
+
+const DEFAULT_COLUMN_GAP = 0.02;
+const DEFAULT_LINE_GAP = 0.012;
+const DEFAULT_MIN_OVERLAP_RATIO = 0.5;
+const DEFAULT_MAX_WIDTH_RATIO = 1.7;
+
+function positiveOption(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function horizontalOverlap(a: NormRect, b: NormRect): number {
+  return Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+}
+
+function sameTextRow(a: NormRect, b: NormRect): boolean {
+  const overlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+  const minHeight = Math.min(a.h, b.h);
+  if (overlap >= minHeight * 0.25) return true;
+  // 上标/下标等极端情况：顶端几乎对齐也当作同一行
+  return Math.abs(a.y - b.y) <= MIN_GEOMETRY_SIZE * 1.5;
+}
+
+function mergeRects(a: NormRect, b: NormRect): NormRect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return clampRect({
+    x,
+    y,
+    w: Math.max(a.x + a.w, b.x + b.w) - x,
+    h: Math.max(a.y + a.h, b.y + b.h) - y,
+  });
+}
+
+function buildRows(rects: readonly NormRect[]): SelectionRow[] {
+  const sorted = rects.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  const rows: SelectionRow[] = [];
+  for (const rect of sorted) {
+    const row = rows[rows.length - 1];
+    if (row && row.rects.some((existing) => sameTextRow(existing, rect))) {
+      row.rects.push(rect);
+    } else {
+      rows.push({ rects: [rect], segments: [] });
+    }
+  }
+  return rows;
+}
+
+function splitRowIntoSegments(row: SelectionRow, columnGap: number): NormRect[] {
+  const sorted = row.rects.slice().sort((a, b) => a.x - b.x);
+  const segments: NormRect[] = [];
+  for (const rect of sorted) {
+    const current = segments[segments.length - 1];
+    if (current && rect.x - (current.x + current.w) <= columnGap) {
+      segments[segments.length - 1] = mergeRects(current, rect);
+    } else {
+      segments.push({ ...rect });
+    }
+  }
+  return segments;
+}
+
+function isSpanningSegment(
+  segment: NormRect,
+  row: SelectionRow,
+  rows: readonly SelectionRow[],
+): boolean {
+  if (row.segments.length !== 1 || segment.w < 0.35) return false;
+  const rowTop = Math.min(...row.segments.map((item) => item.y));
+  const rowBottom = Math.max(...row.segments.map((item) => item.y + item.h));
+  for (const neighbour of rows) {
+    if (neighbour === row || neighbour.segments.length < 2) continue;
+    const neighbourTop = Math.min(...neighbour.segments.map((item) => item.y));
+    const neighbourBottom = Math.max(...neighbour.segments.map((item) => item.y + item.h));
+    const verticalGap = Math.max(neighbourTop - rowBottom, rowTop - neighbourBottom, 0);
+    if (verticalGap > 0.12) continue;
+    let covered = 0;
+    for (const other of neighbour.segments) {
+      if (horizontalOverlap(segment, other) >= Math.min(segment.w, other.w) * 0.2) covered += 1;
+    }
+    if (covered >= 2) return true;
+  }
+  return false;
+}
+
+function tryMergeTrack(
+  track: RegionTrack,
+  segment: NormRect,
+  lineGap: number,
+  minOverlapRatio: number,
+  maxWidthRatio: number,
+  columnGap: number,
+): boolean {
+  const gap = segment.y - (track.last.y + track.last.h);
+  if (gap > lineGap) return false;
+  if (gap < -Math.max(track.last.h, segment.h)) return false;
+  const overlapRatio = horizontalOverlap(track.last, segment) / Math.max(track.last.w, segment.w, 1e-9);
+  const minWidth = Math.max(Math.min(track.last.w, segment.w), 1e-9);
+  const widthRatio = Math.max(track.last.w, segment.w) / minWidth;
+  if (overlapRatio >= minOverlapRatio && widthRatio <= maxWidthRatio) return true;
+  // 段落最后一行常常明显更短：左边缘对齐时也允许合并
+  const leftAligned = Math.abs(track.last.x - segment.x) <= columnGap * 0.75;
+  return leftAligned && track.last.w <= 0.6 && segment.w <= track.last.w;
+}
+
+/**
+ * 把文字选区里的若干行矩形拆成「按栏」的区域。
+ *
+ * PDF 的文字层对跨栏选区会返回左栏一行、右栏一行……如果直接取外接矩形，
+ * 高亮会横跨两栏之间的整块空白（看起来像高亮整页）。这里先按行分组，
+ * 再在行内按水平间隙拆栏，最后纵向合并同一栏的相邻行；通栏标题单独成块。
+ */
+export function buildSelectionRegions(
+  rects: readonly NormRect[],
+  options: SelectionRegionOptions = {},
+): NormRect[] {
+  const columnGap = positiveOption(options.columnGap, DEFAULT_COLUMN_GAP);
+  const lineGap = positiveOption(options.lineGap, DEFAULT_LINE_GAP);
+  const minOverlapRatio = positiveOption(options.minOverlapRatio, DEFAULT_MIN_OVERLAP_RATIO);
+  const maxWidthRatio = positiveOption(options.maxWidthRatio, DEFAULT_MAX_WIDTH_RATIO);
+
+  const usable = rects
+    .filter((rect) => [rect.x, rect.y, rect.w, rect.h].every((value) => Number.isFinite(value)))
+    .map((rect) => clampRect(rect))
+    .filter((rect) => isUsableRect(rect));
+  if (usable.length <= 1) return usable;
+
+  const rows = buildRows(usable);
+  for (const row of rows) row.segments = splitRowIntoSegments(row, columnGap);
+
+  const tracks: RegionTrack[] = [];
+  const spanning: RegionTrack[] = [];
+
+  for (const row of rows) {
+    for (const segment of row.segments) {
+      const target = isSpanningSegment(segment, row, rows) ? spanning : tracks;
+      let bestIndex = -1;
+      let bestOverlap = -1;
+      for (let i = 0; i < target.length; i += 1) {
+        const track = target[i];
+        if (!tryMergeTrack(track, segment, lineGap, minOverlapRatio, maxWidthRatio, columnGap)) continue;
+        const overlap = horizontalOverlap(track.last, segment);
+        if (overlap > bestOverlap) {
+          bestOverlap = overlap;
+          bestIndex = i;
+        }
+      }
+      if (bestIndex >= 0) {
+        const track = target[bestIndex];
+        track.bounds = mergeRects(track.bounds, segment);
+        track.last = segment;
+      } else {
+        target.push({ bounds: { ...segment }, last: segment });
+      }
+    }
+  }
+
+  return [...tracks, ...spanning]
+    .map((track) => track.bounds)
+    .sort((a, b) => (a.y - b.y) || (a.x - b.x));
+}
+
 function percent(value: number): string {
   return `${(clamp01(value) * 100).toFixed(3)}%`;
 }

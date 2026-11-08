@@ -26,7 +26,7 @@ import { SelectionCapture } from "./selection-capture.ts";
 import type { ViewerHost, ViewerHostInfo } from "./viewer-host.ts";
 
 type PendingSelection =
-  | { kind: "text"; page: number; rect: NormRect; alias: string }
+  | { kind: "text"; page: number; rect: NormRect; rects: NormRect[]; alias: string }
   | { kind: "rect"; page: number; rect: NormRect };
 
 interface ViewerEventPayload {
@@ -107,7 +107,13 @@ export class ViewerBinding {
           this.hideToolbar();
           return;
         }
-        this.pending = { kind: "text", page: result.page, rect: result.rect, alias: result.alias };
+        this.pending = {
+          kind: "text",
+          page: result.page,
+          rect: result.rect,
+          rects: result.rects,
+          alias: result.alias,
+        };
         this.showToolbar(result.anchor);
       },
     );
@@ -438,6 +444,7 @@ export class ViewerBinding {
       pending.kind,
       pending.rect,
       alias,
+      pending.kind === "text" ? pending.rects : null,
     );
     const payload =
       format === "reference"

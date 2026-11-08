@@ -1,5 +1,6 @@
 import type { BvLike, NormRect } from "../types.ts";
 import {
+  buildSelectionRegions,
   findPageElement,
   getPageContentRect,
   getPageNumberOf,
@@ -10,7 +11,10 @@ import {
 
 export interface TextSelectionResult {
   page: number;
+  /** 所有区域的并集（浮动工具栏锚点、兼容旧调用） */
   rect: NormRect;
+  /** 按栏拆分后的实际高亮区域；单栏时只有一块 */
+  rects: NormRect[];
   alias: string;
   anchor: { left: number; top: number; right: number; bottom: number };
 }
@@ -117,9 +121,11 @@ export class SelectionCapture {
       return;
     }
 
+    const regions = buildSelectionRegions(rects);
     this.onSelect({
       page,
       rect: merged,
+      rects: regions.length > 0 ? regions : [merged],
       alias: selection.toString(),
       anchor: {
         left: Math.min(...clients.map((c) => c.left)),
