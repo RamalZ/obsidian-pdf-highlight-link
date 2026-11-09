@@ -54,6 +54,8 @@ assert.equal(manifest.isDesktopOnly, true, "插件应标记为仅桌面端");
 assert.equal(typeof manifest.minAppVersion, "string", "manifest.json 缺少 minAppVersion");
 assert.equal(manifest.minAppVersion, "1.13.0", "manifest.json 的 minAppVersion 应为 1.13.0（声明式设置 API 的要求）");
 assert.ok(manifest.description.endsWith("."), "manifest.json 的 description 应以 ASCII 句号结尾");
+assert.ok(manifest.description.includes("PDF"), "manifest.json 的 description 应说明 PDF");
+assert.ok(!/[\u3400-\u9fff]/.test(manifest.description), "manifest.json 的 description 应为英文（不含中日韩汉字）");
 
 console.log(`✓ 打包产物可加载（${(bundleSize / 1024).toFixed(1)} KB）`);
 console.log("✓ 默认设置与 manifest 校验通过");

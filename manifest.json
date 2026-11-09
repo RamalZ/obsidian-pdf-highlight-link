@@ -1,9 +1,9 @@
 {
   "id": "pdf-highlight-link",
   "name": "PDF Highlight Link",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "minAppVersion": "1.13.0",
-  "description": "在内置 PDF 阅读器中复制选区/框选链接，粘贴到笔记后重新打开 PDF 即可看到对应高亮.",
+  "description": "Copy selection or region links in Obsidian's built-in PDF viewer; paste them into a note and reopen the PDF to see the matching highlight.",
   "author": "Ramal",
   "isDesktopOnly": true
 }

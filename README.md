@@ -34,6 +34,8 @@ Select text or drag a rectangle in Obsidian's built-in PDF viewer — in a PDF t
 - **Settings**: default mode (off / text / rectangle), highlight color (yellow / green / blue / pink), opacity
 - **Localized UI**: commands, ribbon, toolbar buttons, floating toolbar, sidebar panel, settings, and notices follow Obsidian's interface language (Simplified Chinese / Traditional Chinese / English); unsupported languages fall back to English
 
+> **Plugin description**: the summary in Obsidian's community plugin list is always English; the in-plugin UI still follows Obsidian's interface language.
+
 ## Link format
 
 Text selection (the coordinates are two **opposite corners**):
@@ -205,6 +207,12 @@ Common symptoms and causes:
 ## Changelog
 
 > Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.6
+
+**Changed**
+
+- The plugin-list summary is now English (`manifest.json` / `package.json`) to satisfy the community repository checks. The in-plugin UI still follows Obsidian's interface language (Simplified Chinese / Traditional Chinese / English); a language switcher is planned for a later release.
 
 ### 0.2.5
 

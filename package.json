@@ -1,7 +1,7 @@
 {
   "name": "pdf-highlight-link",
-  "version": "0.2.5",
-  "description": "在 Obsidian 内置 PDF 阅读器中复制选区/框选链接，并按反向链接渲染高亮",
+  "version": "0.2.6",
+  "description": "Copy selection or region links in Obsidian's built-in PDF viewer and render highlights from backlinks.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
