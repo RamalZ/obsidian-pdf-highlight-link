@@ -231,14 +231,16 @@ export class ViewerManager {
       if (proto.__pdfhlAddChildPatched) return;
 
       const original = proto.addChild;
-      const manager = this;
-      proto.addChild = function patchedAddChild(this: unknown, ...args: unknown[]): unknown {
-        const result = original.apply(this, args);
+      const captureEmbed = (value: unknown): void => {
         try {
-          manager.captureEmbedComponent(args[0]);
+          this.captureEmbedComponent(value);
         } catch (error) {
           console.debug("[pdfhl] 捕获内嵌 PDF 组件失败（已忽略）", error);
         }
+      };
+      proto.addChild = function patchedAddChild(this: unknown, ...args: unknown[]): unknown {
+        const result = original.apply(this, args);
+        if (args.length > 0) captureEmbed(args[0]);
         return result;
       };
       proto.__pdfhlAddChildPatched = true;
@@ -463,7 +465,7 @@ export class ViewerManager {
   /** 当前激活的 PDF 绑定；优先当前叶子，其次叶子里的内嵌 PDF，最后回退到最近激活的 PDF */
   getActiveBinding(): ViewerBinding | null {
     const workspace = this.plugin.app.workspace;
-    const activeLeaf = workspace.activeLeaf;
+    const activeLeaf = workspace.getMostRecentLeaf();
 
     if (activeLeaf) {
       const leafBinding = this.bindings.get(activeLeaf);

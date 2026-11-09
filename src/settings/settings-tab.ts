@@ -1,5 +1,5 @@
-import { PluginSettingTab, Setting } from "obsidian";
-import type { App } from "obsidian";
+import { PluginSettingTab } from "obsidian";
+import type { App, Setting, SettingDefinitionItem } from "obsidian";
 import { getStrings } from "../i18n/strings.ts";
 import type PdfHighlightLinkPlugin from "../main.ts";
 import type { ActiveMode, HighlightColor, PdfHighlightSettings } from "../types.ts";
@@ -62,6 +62,13 @@ export function normalizeSettings(raw: unknown): PdfHighlightSettings {
   return { schemaVersion: SETTINGS_SCHEMA_VERSION, defaultMode: mode, color, opacity };
 }
 
+/** 把选项数组转成声明式设置要求的 Record（兼容 ES2018，不用 Object.fromEntries） */
+function toDropdownOptions(options: Array<{ value: string; label: string }>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const option of options) result[option.value] = option.label;
+  return result;
+}
+
 export class PdfHighlightSettingTab extends PluginSettingTab {
   private plugin: PdfHighlightLinkPlugin;
 
@@ -70,69 +77,97 @@ export class PdfHighlightSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
-    const { containerEl } = this;
+  /**
+   * 1.13.0+ 的声明式设置：设置项会进入 Obsidian 设置搜索。
+   * 本插件最低版本为 1.13.0，因此不需要再保留已弃用的 display()。
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
     const strings = getStrings();
-    containerEl.empty();
-
-    new Setting(containerEl)
-      .setName(strings.settingDefaultModeName)
-      .setDesc(strings.settingDefaultModeDesc)
-      .addDropdown((dropdown) => {
-        for (const option of getModeOptions()) dropdown.addOption(option.value, option.label);
-        dropdown
-          .setValue(this.plugin.settings.defaultMode)
-          .onChange(async (value) => {
-            const mode: ActiveMode = VALID_MODES.includes(value as ActiveMode)
-              ? (value as ActiveMode)
-              : DEFAULT_SETTINGS.defaultMode;
-            this.plugin.settings.defaultMode = mode;
-            await this.plugin.saveSettings();
-            this.plugin.setMode(mode);
+    return [
+      {
+        name: strings.settingDefaultModeName,
+        desc: strings.settingDefaultModeDesc,
+        control: {
+          type: "dropdown",
+          key: "defaultMode",
+          options: toDropdownOptions(getModeOptions()),
+          defaultValue: DEFAULT_SETTINGS.defaultMode,
+        },
+      },
+      {
+        name: strings.settingColorName,
+        desc: strings.settingColorDesc,
+        control: {
+          type: "dropdown",
+          key: "color",
+          options: toDropdownOptions(getColorOptions()),
+          defaultValue: DEFAULT_SETTINGS.color,
+        },
+      },
+      {
+        name: strings.settingOpacityName,
+        desc: strings.settingOpacityDesc,
+        control: {
+          type: "slider",
+          key: "opacity",
+          min: 0.1,
+          max: 0.8,
+          step: 0.05,
+          defaultValue: DEFAULT_SETTINGS.opacity,
+        },
+      },
+      {
+        name: strings.settingRestoreName,
+        desc: strings.settingRestoreDesc,
+        render: (setting: Setting) => {
+          setting.addButton((button) => {
+            button.setButtonText(strings.settingRestoreButton).onClick(() => {
+              void this.restoreDefaults();
+            });
           });
-      });
+        },
+      },
+    ];
+  }
 
-    new Setting(containerEl)
-      .setName(strings.settingColorName)
-      .setDesc(strings.settingColorDesc)
-      .addDropdown((dropdown) => {
-        for (const option of getColorOptions()) dropdown.addOption(option.value, option.label);
-        dropdown.setValue(this.plugin.settings.color).onChange(async (value) => {
-          const color = VALID_COLORS.includes(value as HighlightColor)
-            ? (value as HighlightColor)
-            : DEFAULT_SETTINGS.color;
-          this.plugin.settings.color = color;
-          await this.plugin.saveSettings();
-          this.plugin.applyStyle();
-        });
-      });
+  getControlValue(key: string): unknown {
+    return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+  }
 
-    new Setting(containerEl)
-      .setName(strings.settingOpacityName)
-      .setDesc(strings.settingOpacityDesc)
-      .addSlider((slider) => {
-        slider
-          .setLimits(0.1, 0.8, 0.05)
-          .setValue(this.plugin.settings.opacity)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.opacity = Math.round(value * 100) / 100;
-            await this.plugin.saveSettings();
-            this.plugin.applyStyle();
-          });
-      });
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    if (key === "defaultMode") {
+      const mode = VALID_MODES.includes(value as ActiveMode)
+        ? (value as ActiveMode)
+        : DEFAULT_SETTINGS.defaultMode;
+      this.plugin.settings.defaultMode = mode;
+      await this.plugin.saveSettings();
+      this.plugin.setMode(mode);
+      return;
+    }
 
-    new Setting(containerEl)
-      .setName(strings.settingRestoreName)
-      .setDesc(strings.settingRestoreDesc)
-      .addButton((button) => {
-        button.setButtonText(strings.settingRestoreButton).onClick(async () => {
-          this.plugin.settings = { ...DEFAULT_SETTINGS };
-          await this.plugin.saveSettings();
-          this.plugin.setMode(DEFAULT_SETTINGS.defaultMode);
-          this.plugin.applyStyle();
-          this.display();
-        });
-      });
+    if (key === "color") {
+      const color = VALID_COLORS.includes(value as HighlightColor)
+        ? (value as HighlightColor)
+        : DEFAULT_SETTINGS.color;
+      this.plugin.settings.color = color;
+      await this.plugin.saveSettings();
+      this.plugin.applyStyle();
+      return;
+    }
+
+    if (key === "opacity") {
+      if (typeof value !== "number" || !Number.isFinite(value)) return;
+      this.plugin.settings.opacity = Math.min(0.8, Math.max(0.1, Math.round(value * 100) / 100));
+      await this.plugin.saveSettings();
+      this.plugin.applyStyle();
+    }
+  }
+
+  private async restoreDefaults(): Promise<void> {
+    this.plugin.settings = { ...DEFAULT_SETTINGS };
+    await this.plugin.saveSettings();
+    this.plugin.setMode(DEFAULT_SETTINGS.defaultMode);
+    this.plugin.applyStyle();
+    this.update();
   }
 }

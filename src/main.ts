@@ -21,6 +21,15 @@ const DATA_REFRESH_DELAY_MS = 200;
 /** 面板刷新去抖（毫秒） */
 const PANEL_REFRESH_DELAY_MS = 120;
 
+/** 从磁盘数据里读取设置 schema 版本；非法/缺失按 1 处理（触发迁移） */
+function readSchemaVersion(raw: unknown): number {
+  if (raw && typeof raw === "object" && "schemaVersion" in raw) {
+    const value = (raw as { schemaVersion?: unknown }).schemaVersion;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return 1;
+}
+
 export default class PdfHighlightLinkPlugin extends Plugin {
   settings: PdfHighlightSettings = { ...DEFAULT_SETTINGS };
 
@@ -84,7 +93,6 @@ export default class PdfHighlightLinkPlugin extends Plugin {
     this.panelRefreshTimer = null;
     this.viewerManager.destroyAll();
     restoreApplySubpathPatch();
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_PDF_HIGHLIGHT_PANEL);
   }
 
   // -------------------------------------------------------------------------
@@ -92,10 +100,10 @@ export default class PdfHighlightLinkPlugin extends Plugin {
   // -------------------------------------------------------------------------
 
   async loadSettings(): Promise<void> {
-    const raw = await this.loadData();
+    const raw: unknown = await this.loadData();
     this.settings = normalizeSettings(raw);
     // 旧版本数据缺少 schemaVersion：迁移结果（默认无模式）落盘一次
-    const storedVersion = (raw as { schemaVersion?: number } | null)?.schemaVersion ?? 1;
+    const storedVersion = readSchemaVersion(raw);
     if (storedVersion < SETTINGS_SCHEMA_VERSION) await this.saveSettings();
   }
 
@@ -159,7 +167,11 @@ export default class PdfHighlightLinkPlugin extends Plugin {
     let leaf: WorkspaceLeaf;
     if (opened) {
       leaf = opened;
-      this.app.workspace.revealLeaf(opened);
+      try {
+        await this.app.workspace.revealLeaf(opened);
+      } catch (error) {
+        console.debug("[pdfhl] 切换到已打开的笔记失败（已忽略）", error);
+      }
       // 阅读模式下没有 editor，用临时状态让 MarkdownView 滚到那一行
       try {
         leaf.setEphemeralState({ line: Math.max(0, entry.line) });
@@ -204,19 +216,19 @@ export default class PdfHighlightLinkPlugin extends Plugin {
       return;
     }
 
-    console.groupCollapsed(strings.diagnoseTitle(appVersion, leaves.length, embedBindings.length));
+    console.debug(strings.diagnoseTitle(appVersion, leaves.length, embedBindings.length));
     for (const leaf of leaves) {
       const raw = (leaf.view as unknown as { viewer?: unknown }).viewer;
       const wrapper = raw as { child?: unknown } | null;
       const child = wrapper?.child ?? raw;
-      console.log("叶子：", leaf, "原始 viewer：", raw);
+      console.debug("叶子：", leaf, "原始 viewer：", raw);
       if (child) {
-        console.log("内部组件结构：", describeViewer(child as BvLike));
+        console.debug("内部组件结构：", describeViewer(child as BvLike));
       } else {
-        console.log("内部组件尚未创建（viewer 为空）");
+        console.debug("内部组件尚未创建（viewer 为空）");
       }
       const binding = this.viewerManager.getBindings().find((item) => item.leaf === leaf);
-      console.log(
+      console.debug(
         "绑定状态：",
         binding
           ? {
@@ -229,11 +241,11 @@ export default class PdfHighlightLinkPlugin extends Plugin {
     }
 
     if (embedBindings.length === 0) {
-      console.log(strings.diagnoseNoEmbed);
+      console.debug(strings.diagnoseNoEmbed);
     } else {
       for (const [index, binding] of embedBindings.entries()) {
-        console.log(`内嵌 #${index + 1}：`, binding.getHostInfo());
-        console.log(
+        console.debug(`内嵌 #${index + 1}：`, binding.getHostInfo());
+        console.debug(
           "绑定状态：",
           {
             alive: binding.isAlive(),
@@ -243,7 +255,6 @@ export default class PdfHighlightLinkPlugin extends Plugin {
         );
       }
     }
-    console.groupEnd();
     new Notice(strings.noticeDiagnostics);
   }
 
@@ -283,7 +294,11 @@ export default class PdfHighlightLinkPlugin extends Plugin {
   async activatePanel(): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_PDF_HIGHLIGHT_PANEL)[0];
     if (existing) {
-      this.app.workspace.revealLeaf(existing);
+      try {
+        await this.app.workspace.revealLeaf(existing);
+      } catch (error) {
+        console.debug("[pdfhl] 展开右侧面板失败（已忽略）", error);
+      }
       return;
     }
     const leaf: WorkspaceLeaf | null = this.app.workspace.getRightLeaf(false);
@@ -292,7 +307,11 @@ export default class PdfHighlightLinkPlugin extends Plugin {
       return;
     }
     await leaf.setViewState({ type: VIEW_TYPE_PDF_HIGHLIGHT_PANEL, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    try {
+      await this.app.workspace.revealLeaf(leaf);
+    } catch (error) {
+      console.debug("[pdfhl] 展开右侧面板失败（已忽略）", error);
+    }
     const view = leaf.view;
     if (view instanceof HighlightPanelView) view.refresh();
   }

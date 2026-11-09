@@ -90,7 +90,7 @@ export class RectCapture {
 
     const box = getPageContentRect(pageEl);
     const marquee = pageEl.createDiv({ cls: "pdfhl-marquee" });
-    marquee.style.display = "none";
+    marquee.setCssStyles({ display: "none" });
 
     this.drag = {
       pageEl,
@@ -134,11 +134,13 @@ export class RectCapture {
     drag.rect = rect;
 
     const style = toPercentStyle(rect);
-    drag.marquee.style.display = "block";
-    drag.marquee.style.left = style.left;
-    drag.marquee.style.top = style.top;
-    drag.marquee.style.width = style.width;
-    drag.marquee.style.height = style.height;
+    drag.marquee.setCssStyles({
+      display: "block",
+      left: style.left,
+      top: style.top,
+      width: style.width,
+      height: style.height,
+    });
   };
 
   private handlePointerUp = (event: PointerEvent): void => {

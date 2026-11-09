@@ -6,7 +6,7 @@ Select text or drag a rectangle in Obsidian's built-in PDF viewer — in a PDF t
 
 - The PDF file is never modified; highlights are derived entirely from backlinks
 - Reuses Obsidian's bundled PDF.js viewer, no third-party runtime dependencies
-- Desktop only (Obsidian 1.5+; tested with 1.15.0)
+- Desktop only (Obsidian 1.13+; tested with 1.15.0)
 
 ## Features
 
@@ -130,7 +130,7 @@ Notes:
 - Obsidian **desktop** only (Windows / macOS / Linux); phones and tablets are not supported
 - The recipient does not need Node; the plugin is ordinary JS and is not blocked by SmartScreen or Gatekeeper
 - To keep old color/opacity settings, carry over `data.json` from the previous plugin folder; the package intentionally excludes it
-- If the plugin does not appear in the list, the folder is usually nested one level too deep; if enabling does nothing, restart Obsidian and check that the version is ≥ 1.5
+- If the plugin does not appear in the list, the folder is usually nested one level too deep; if enabling does nothing, restart Obsidian and check that the version is ≥ 1.13
 
 ## Usage
 
@@ -198,13 +198,30 @@ Common symptoms and causes:
 - Embedded PDFs are supported in reading view, Live Preview, and canvas; temporary hover previews are excluded from the panel and bindings. For ordinary embeds, the mode buttons appear only on hover/focus and automatically avoid the native three-dot menu and edit-block button; in a very narrow container they stay inside the PDF's left edge
 - Highlights come from backlinks: delete or break a link and its highlight disappears; there is no in-PDF editor for editing or deleting highlights
 - Color and opacity are global settings, not encoded in the link (the same link shows in the default color in another vault)
-- Copying only writes to the clipboard; nothing is inserted into a note automatically
+- Copying only writes to the clipboard (it never reads clipboard contents); nothing is inserted into a note automatically
 - The plugin depends on Obsidian's internal PDF component (private fields of the `pdf` view) and may need adaptation after a major upgrade; every access is feature-detected and degrades instead of throwing
 - The deploy script's interactive picker needs a real TTY; use `--vault` in CI or pipelines
 
 ## Changelog
 
 > Maintenance rule: append each release's additions, changes, and fixes here; do not overwrite older release notes.
+
+### 0.2.5
+
+**Added**
+
+- The release workflow now generates GitHub artifact attestations for main.js, manifest.json, and styles.css, so users can verify that release assets were built from this repository.
+
+**Changed**
+
+- Minimum supported version is now Obsidian 1.13.0. Settings use the 1.13 declarative settings API, so they appear in settings search; the deprecated display() and setDynamicTooltip() calls were removed.
+- Language detection calls Obsidian's getLanguage() directly and no longer reads or writes localStorage.
+- Copying a link only uses the asynchronous Clipboard API (write-only, user-triggered; clipboard contents are never read) and no longer falls back to the legacy DOM path.
+
+**Fixed**
+
+- Fixed the community-review errors: dynamic styles now use setCssStyles, onunload no longer detaches leaves, revealLeaf calls are awaited, loadData is typed as unknown, and elements are created with createEl/createDiv.
+- Cleaned up diagnostic output (console.debug), unused imports, and redundant type assertions; activeLeaf was replaced with getMostRecentLeaf().
 
 ### 0.2.4
 

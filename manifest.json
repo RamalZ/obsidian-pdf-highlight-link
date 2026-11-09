@@ -1,9 +1,9 @@
 {
   "id": "pdf-highlight-link",
   "name": "PDF Highlight Link",
-  "version": "0.2.4",
-  "minAppVersion": "1.5.0",
-  "description": "在内置 PDF 阅读器中复制选区/框选链接，粘贴到笔记后重新打开 PDF 即可看到对应高亮。",
+  "version": "0.2.5",
+  "minAppVersion": "1.13.0",
+  "description": "在内置 PDF 阅读器中复制选区/框选链接，粘贴到笔记后重新打开 PDF 即可看到对应高亮.",
   "author": "Ramal",
   "isDesktopOnly": true
 }

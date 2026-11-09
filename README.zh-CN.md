@@ -6,7 +6,7 @@
 
 - 不修改原 PDF 文件，高亮完全由反向链接（backlink）推导
 - 复用 Obsidian 自带的 PDF.js 阅读器，不引入任何第三方运行库
-- 仅桌面端（Obsidian 1.5+，已在 1.15.0 实测）
+- 仅桌面端（Obsidian 1.13+，已在 1.15.0 实测）
 
 ## 功能
 
@@ -130,7 +130,7 @@ npm run package    # 产出 dist/pdf-highlight-link/ 和 dist/pdf-highlight-link
 - 仅 Obsidian **桌面版**可用（Windows / macOS / Linux），不支持手机和平板
 - 对方不需要 Node，插件是普通 JS 文件，Windows SmartScreen / macOS Gatekeeper 都不会拦截
 - 只想保留旧的颜色/透明度设置时，把旧插件目录里的 `data.json` 一起带上；打包产物默认不含 `data.json`
-- 列表里看不到插件，通常是文件夹多套了一层；启用后没反应，先重启 Obsidian 并确认版本 ≥ 1.5
+- 列表里看不到插件，通常是文件夹多套了一层；启用后没反应，先重启 Obsidian 并确认版本 ≥ 1.13
 
 ## 使用
 
@@ -198,13 +198,30 @@ scripts/deploy.mjs            部署脚本
 - 笔记内嵌 PDF 支持普通阅读视图、实时预览与画布；临时悬停预览（hover popover）不纳入面板与绑定。普通内嵌的模式按钮只在悬停/聚焦时显示，并自动避让原生三点菜单与编辑块按钮；窗口过窄时优先保证按钮不越出 PDF 左边界
 - 高亮由反向链接推导：链接被删或改坏，高亮随之消失；不提供在 PDF 里直接编辑/删除高亮的界面
 - 颜色与透明度是全局设置，不写进链接（同一链接在别的 vault 用默认颜色显示）
-- 复制只写入剪贴板，不自动插入笔记
+- 复制只写入剪贴板（不读取剪贴板内容），不自动插入笔记
 - 依赖 Obsidian 内部 PDF 组件（`pdf` 视图的私有字段），Obsidian 大版本升级后可能需要适配；所有访问都做了特征探测，缺失时降级而不是报错
 - 部署脚本的交互选择需要真实终端（TTY），在 CI/管道里请用 `--vault`
 
 ## 版本记录
 
 > 维护约定：每个版本的新增、变更与修复都追加在本节，不覆写旧版本记录。
+
+### 0.2.5
+
+**新增**
+
+- 发布流程为 main.js、manifest.json、styles.css 生成 GitHub 构建来源证明（artifact attestations），可校验发布产物确实来自本仓库的构建。
+
+**变更**
+
+- 最低支持版本提高到 Obsidian 1.13.0；设置页改用 1.13 的声明式设置 API，设置项可被设置搜索找到，并移除已弃用的 display() 与 setDynamicTooltip()。
+- 语言探测直接使用 Obsidian 的 getLanguage()，不再读写 localStorage。
+- 复制链接只使用异步 Clipboard API（只在用户点击复制时写入，不读取剪贴板，也不自动插入笔记），移除旧式 DOM 回退。
+
+**修复**
+
+- 修复社区审查报告的错误：动态样式改用 setCssStyles、onunload 不再 detach 叶子、revealLeaf 均 await、loadData 改为 unknown 类型、元素创建改用 createEl/createDiv。
+- 清理诊断输出（改用 console.debug）、未使用的导入与多余类型断言；activeLeaf 改为 getMostRecentLeaf()。
 
 ### 0.2.4
 

@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 import type { KeymapEventHandler, Scope, TFile, WorkspaceLeaf } from "obsidian";
 import type PdfHighlightLinkPlugin from "../main.ts";
-import type { BvLike, HighlightEntry, HighlightMode, NormRect, PdfEventBusLike } from "../types.ts";
+import type { BvLike, HighlightEntry, NormRect, PdfEventBusLike } from "../types.ts";
 import { buildHighlightIndex } from "../core/backlink-index.ts";
 import { computeOverlayRight } from "../core/geometry.ts";
 import {
@@ -290,14 +290,14 @@ export class ViewerBinding {
     const desired = computeOverlayRight(parentRect.right, lefts, 10);
     // 容器过窄时优先保证 overlay 不越出左边界
     const maxRight = Math.max(6, parentRect.width - overlayWidth - 6);
-    overlay.style.right = `${Math.min(desired, maxRight)}px`;
+    overlay.setCssStyles({ right: `${Math.min(desired, maxRight)}px` });
     this.overlayAttempts = 0;
     this.observeOverlayLayout(parent, targets);
   }
 
   private applyOverlayFallback(parent: HTMLElement, targets: readonly HTMLElement[]): void {
     const overlay = this.overlay;
-    if (overlay) overlay.style.right = "";
+    if (overlay) overlay.setCssStyles({ right: "" });
     this.observeOverlayLayout(parent, targets);
     this.scheduleOverlayRetry();
   }

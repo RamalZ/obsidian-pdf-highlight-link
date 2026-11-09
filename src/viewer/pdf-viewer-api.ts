@@ -76,7 +76,7 @@ export async function resolveViewerComponent(leaf: WorkspaceLeaf, timeoutMs = RE
 export function getLoadedViewerComponent(leaf: WorkspaceLeaf): BvLike | null {
   const view = leaf.view as unknown as PdfViewLike | undefined;
   if (!view || typeof view.getViewType !== "function" || view.getViewType() !== PDF_VIEW_TYPE) return null;
-  const raw = view.viewer as unknown;
+  const raw = view.viewer;
   if (!raw || typeof raw !== "object") return null;
   const wrapper = raw as { child?: unknown };
   const candidate = (wrapper.child ?? raw) as BvLike;
@@ -251,7 +251,7 @@ export function restoreApplySubpathPatch(): void {
 
 /** 判断当前 subpathHighight 是否是原生解析出来的退化区间（兜底用） */
 export function hasDegenerateNativeHighlight(bv: BvLike): boolean {
-  const highlight = bv.subpathHighlight as { type?: string; range?: number[][] } | null | undefined;
+  const highlight = bv.subpathHighlight;
   if (!highlight || highlight.type !== "text" || !Array.isArray(highlight.range)) return false;
   return highlight.range.every((pair) => Array.isArray(pair) && pair[0] === 0 && pair[1] === 0);
 }

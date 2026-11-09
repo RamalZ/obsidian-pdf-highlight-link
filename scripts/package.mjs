@@ -61,7 +61,7 @@ function buildInstallGuide(manifest) {
 把链接贴进笔记后，重新打开这个 PDF 就会在对应位置显示半透明高亮。
 
 · 支持 Obsidian 桌面版（Windows / macOS / Linux），不支持 iPhone / iPad。
-· 要求 Obsidian 1.5 或更高版本。
+· 要求 Obsidian 1.13.0 或更高版本。
 · 不需要安装 Node，也不需要运行任何命令；插件只是普通 JS 文件。
 
 
@@ -128,7 +128,7 @@ macOS：Finder 里按 Cmd + Shift + . 显示隐藏文件。
 五、常见问题
 ------------
 · 插件列表里看不到：99% 是文件夹多套了一层，按第二节检查层级。
-· 启用了但没反应：重启 Obsidian；确认版本 ≥ 1.5；确认是桌面版。
+· 启用了但没反应：重启 Obsidian；确认版本 ≥ 1.13.0；确认是桌面版。
 · PDF 里没有高亮：确认链接写在笔记正文里（不是只看悬浮预览），
   并且链接中的文件名与 PDF 实际文件名一致。
 · 命令面板 / 开发者工具：Windows 用 Ctrl+P / Ctrl+Shift+I，macOS 用 Cmd+P / Cmd+Option+I。

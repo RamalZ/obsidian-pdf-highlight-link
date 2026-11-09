@@ -320,7 +320,7 @@ export function extractQuoteLine(lines: readonly string[], linkLine: number): st
 }
 
 /**
- * 写入剪贴板：优先异步 Clipboard API，失败退化到 textarea + execCommand。
+ * 写入剪贴板：只使用异步 Clipboard API，不再提供旧式 DOM 回退。
  * 返回是否成功（调用方据此提示用户）。
  */
 export async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -329,24 +329,9 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
       await navigator.clipboard.writeText(text);
       return true;
     }
-  } catch {
-    // 常见于窗口失焦；继续尝试回退方案
-  }
-  try {
-    const doc = document;
-    const area = doc.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "true");
-    area.style.position = "fixed";
-    area.style.top = "-1000px";
-    area.style.opacity = "0";
-    doc.body.appendChild(area);
-    area.select();
-    const ok = doc.execCommand("copy");
-    area.remove();
-    return ok;
   } catch (error) {
+    // 常见于窗口失焦或用户拒绝剪贴板权限
     console.error("[pdfhl] 复制链接失败", error);
-    return false;
   }
+  return false;
 }

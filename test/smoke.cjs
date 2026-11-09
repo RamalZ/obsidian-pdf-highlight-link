@@ -31,6 +31,9 @@ assert.ok(bundleSource.includes("embed-actions"), "main.js 里没有原生操作
 assert.ok(bundleSource.includes("pdf-toolbar-right"), "main.js 里没有原生 PDF 工具栏定位逻辑，打包内容疑似不完整");
 assert.ok(bundleSource.includes("rects="), "main.js 里没有多区域高亮参数，打包内容疑似不完整");
 assert.ok(bundleSource.includes("generateMarkdownLink"), "main.js 里没有链接生成调用，打包内容疑似不完整");
+for (const banned of ["execCommand", "localStorage", "setDynamicTooltip", "detachLeavesOfType", "document.createElement"]) {
+  assert.ok(!bundleSource.includes(banned), `main.js 不应再包含已移除的 API：${banned}`);
+}
 
 const exported = require(mainPath);
 const PluginClass = exported.default;
@@ -49,6 +52,8 @@ assert.equal(manifest.id, "pdf-highlight-link", "manifest.json 的 id 与部署�
 assert.equal(manifest.name, "PDF Highlight Link", "manifest.json 的显示名应为英文");
 assert.equal(manifest.isDesktopOnly, true, "插件应标记为仅桌面端");
 assert.equal(typeof manifest.minAppVersion, "string", "manifest.json 缺少 minAppVersion");
+assert.equal(manifest.minAppVersion, "1.13.0", "manifest.json 的 minAppVersion 应为 1.13.0（声明式设置 API 的要求）");
+assert.ok(manifest.description.endsWith("."), "manifest.json 的 description 应以 ASCII 句号结尾");
 
 console.log(`✓ 打包产物可加载（${(bundleSize / 1024).toFixed(1)} KB）`);
 console.log("✓ 默认设置与 manifest 校验通过");
